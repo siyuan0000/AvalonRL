@@ -1,0 +1,11 @@
+1. skeleton -lsy
+    ollama/api
+    discussion Phase
+    prompt complete-确认每个role的视野
+2. evaluation -wzy
+    玩儿很多轮求胜率
+3. benchmark
+4. data collection
+5. zero-shot vs few-shot
+5. train model
+6. paper
