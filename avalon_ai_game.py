@@ -656,15 +656,15 @@ Your assassination target:"""
             if good_wins >= 3:
                 # Good wins 3 missions, assassin phase
                 good_victory = self.run_assassination_phase()
-                self.print_final_result(good_victory)
-                return
+                return self.print_final_result(good_victory)
+                
             elif evil_wins >= 3:
                 # Evil wins 3 missions
                 print(f"\n{'='*60}")
                 print("EVIL WINS 3 MISSIONS!")
                 print(f"{'='*60}")
-                self.print_final_result(False)
-                return
+                return self.print_final_result(False)
+                
 
         # Should not reach here
         self.print_final_result(False)
@@ -680,6 +680,8 @@ Your assassination target:"""
         for p in self.game.players:
             print(f"  {p.name}: {p.role} ({'Evil' if p.is_evil else 'Good'})")
         print(f"\n{'='*60}")
+
+        return "Good" if good_victory else "Evil"
 
 
 def main():

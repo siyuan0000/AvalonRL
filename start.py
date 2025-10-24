@@ -161,7 +161,7 @@ def custom_mode():
     return player_ais
 
 
-def main():
+def run_the_game():
     """Main launcher function."""
     print_header()
 
@@ -217,6 +217,8 @@ def main():
     controller = GameController(game, player_ais)
     controller.run_game()
 
+def main():
+    run_the_game()
 
 if __name__ == "__main__":
     try:
