@@ -1,0 +1,18 @@
+#ai
+.claude/
+
+#models
+/models
+
+# production
+/build
+/dist
+.env*.local
+
+# local env files
+.env*.local
+.env
+.env.development
+.env.test
+.env.production
+
