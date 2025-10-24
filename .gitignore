@@ -16,3 +16,7 @@
 .env.test
 .env.production
 
+# Game logs
+/logs
+*.log
+

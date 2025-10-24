@@ -5,6 +5,9 @@ import re
 import os
 from typing import Optional
 from pathlib import Path
+from datetime import datetime
+from prompts import AvalonPrompts
+from game_logger import GameLogger
 
 
 class Player:
@@ -287,6 +290,10 @@ class GameController:
         self.game = game
         self.player_ais = player_ai_configs
 
+        # Initialize game logger
+        self.logger = GameLogger()
+        self.logger.log_players(self.game.players, self.player_ais)
+
     def get_player_ai(self, player):
         """Get the AI instance for a specific player."""
         player_index = self.game.players.index(player)
@@ -298,26 +305,13 @@ class GameController:
         game_state = self.game.get_game_state()
         team_names = [p.name for p in proposed_team]
 
-        # Format discussion history
-        history_text = "\n".join([f"  {name}: {comment}" for name, comment in discussion_history]) if discussion_history else "  (No previous comments)"
-
-        prompt = f"""You are playing Avalon. {role_info}
-
-{game_state}
-Leader {leader.name} has proposed this team: {team_names}
-
-Previous discussion:
-{history_text}
-
-You now have the opportunity to discuss this proposal. You can:
-- Express support or concerns about the team composition
-- Share your thoughts (without revealing your role)
-- Question the leader's choices
-- Make strategic comments
-
-IMPORTANT: Output a brief comment (1-2 sentences) about this team proposal. Be concise and strategic.
-
-Your comment:"""
+        prompt = AvalonPrompts.discussion(
+            role_info=role_info,
+            game_state=game_state,
+            leader_name=leader.name,
+            proposed_team=team_names,
+            discussion_history=discussion_history
+        )
 
         ai = self.get_player_ai(player)
         response = ai.call_model(prompt)
@@ -340,29 +334,14 @@ Your comment:"""
         game_state = self.game.get_game_state()
         initial_team_names = [p.name for p in initial_team]
 
-        # Format discussion history
-        history_text = "\n".join([f"  {name}: {comment}" for name, comment in discussion_history])
-
-        prompt = f"""You are playing Avalon. {role_info}
-
-{game_state}
-Players: {player_names}
-
-You initially proposed: {initial_team_names}
-
-Discussion from other players:
-{history_text}
-
-Based on the discussion, you can now:
-1. Keep your original proposal
-2. Modify your team selection
-
-You must select exactly {team_size} players for this mission.
-
-IMPORTANT: Output ONLY a comma-separated list of player names for your FINAL team proposal, nothing else.
-Example format: Alice,Bob,Charlie
-
-Your final team:"""
+        prompt = AvalonPrompts.leader_final_decision(
+            role_info=role_info,
+            game_state=game_state,
+            player_names=player_names,
+            initial_team=initial_team_names,
+            team_size=team_size,
+            discussion_history=discussion_history
+        )
 
         ai = self.get_player_ai(leader)
         response = ai.call_model(prompt)
@@ -389,17 +368,12 @@ Your final team:"""
         role_info = self.game.get_role_visibility(leader)
         game_state = self.game.get_game_state()
 
-        prompt = f"""You are playing Avalon. {role_info}
-
-{game_state}
-Players: {player_names}
-
-You are the leader. You must select exactly {team_size} players for this mission.
-
-IMPORTANT: Output ONLY a comma-separated list of player names, nothing else.
-Example format: Alice,Bob,Charlie
-
-Your selection:"""
+        prompt = AvalonPrompts.team_proposal(
+            role_info=role_info,
+            game_state=game_state,
+            player_names=player_names,
+            team_size=team_size
+        )
 
         print(f"\n[AI] {leader.name} is proposing a team...")
         ai = self.get_player_ai(leader)
@@ -428,16 +402,11 @@ Your selection:"""
         game_state = self.game.get_game_state()
         team_names = [p.name for p in proposed_team]
 
-        prompt = f"""You are playing Avalon. {role_info}
-
-{game_state}
-Proposed team: {team_names}
-
-You must vote to APPROVE or REJECT this team.
-
-IMPORTANT: Output ONLY one word: either "APPROVE" or "REJECT", nothing else.
-
-Your vote:"""
+        prompt = AvalonPrompts.vote(
+            role_info=role_info,
+            game_state=game_state,
+            proposed_team=team_names
+        )
 
         ai = self.get_player_ai(player)
         response = ai.call_model(prompt)
@@ -454,17 +423,10 @@ Your vote:"""
         role_info = self.game.get_role_visibility(player)
         game_state = self.game.get_game_state()
 
-        prompt = f"""You are playing Avalon. {role_info}
-
-{game_state}
-
-You are on the mission. Choose your action:
-- Good players MUST choose "SUCCESS"
-- Evil players MAY choose "SUCCESS" or "FAIL"
-
-IMPORTANT: Output ONLY one word: either "SUCCESS" or "FAIL", nothing else.
-
-Your action:"""
+        prompt = AvalonPrompts.mission_action(
+            role_info=role_info,
+            game_state=game_state
+        )
 
         ai = self.get_player_ai(player)
         response = ai.call_model(prompt)
@@ -488,15 +450,10 @@ Your action:"""
         player_names = [p.name for p in self.game.players if not p.is_evil]
         role_info = self.game.get_role_visibility(assassin)
 
-        prompt = f"""You are playing Avalon. {role_info}
-
-The Good team has won 3 missions! As the Assassin, you have ONE chance to kill Merlin and win the game for Evil.
-
-Good players: {player_names}
-
-IMPORTANT: Output ONLY the name of one player, nothing else.
-
-Your assassination target:"""
+        prompt = AvalonPrompts.assassination(
+            role_info=role_info,
+            good_players=player_names
+        )
 
         ai = self.get_player_ai(assassin)
         response = ai.call_model(prompt)
@@ -522,6 +479,9 @@ Your assassination target:"""
         print(f"ROUND {round_num + 1} - Mission requires {team_size} players")
         print(f"{'='*60}")
 
+        # Initialize round log
+        round_log = self.logger.start_round(round_num + 1, team_size)
+
         self.game.rejection_count = 0
 
         while self.game.rejection_count < 5:
@@ -534,7 +494,11 @@ Your assassination target:"""
 
             # Leader proposes initial team
             initial_team = self.ai_propose_team(leader, team_size)
-            print(f"Initial proposal: {[p.name for p in initial_team]}")
+            initial_team_names = [p.name for p in initial_team]
+            print(f"Initial proposal: {initial_team_names}")
+
+            # Initialize proposal log
+            proposal_log = self.logger.log_proposal(leader.name, initial_team_names, is_forced_mission)
 
             # Skip discussion phase on 5th vote
             if is_forced_mission:
@@ -554,6 +518,7 @@ Your assassination target:"""
                     if player.name != leader.name:  # Skip leader for now
                         comment = self.ai_discuss_proposal(player, leader, initial_team, discussion_history)
                         discussion_history.append((player.name, comment))
+                        self.logger.add_discussion_comment(proposal_log, player.name, comment)
                         print(f"\n{player.name}: {comment}")
 
                 # Leader's final summary and decision
@@ -566,13 +531,17 @@ Your assassination target:"""
                 # Check if team changed
                 initial_names = set(p.name for p in initial_team)
                 final_names = set(p.name for p in final_team)
+                final_team_names = [p.name for p in final_team]
+
+                # Log final team
+                self.logger.log_final_team(proposal_log, final_team_names)
 
                 if initial_names != final_names:
                     print(f"\n{leader.name}: After considering your input, I'm changing my proposal.")
-                    print(f"Final team: {[p.name for p in final_team]}")
+                    print(f"Final team: {final_team_names}")
                 else:
                     print(f"\n{leader.name}: I'm keeping my original proposal.")
-                    print(f"Final team: {[p.name for p in final_team]}")
+                    print(f"Final team: {final_team_names}")
 
             # Voting phase (skip on 5th vote)
             if is_forced_mission:
@@ -587,10 +556,15 @@ Your assassination target:"""
                 print(f"{'─'*60}")
 
                 votes = []
+                votes_dict = {}
                 for player in self.game.players:
                     vote = self.ai_vote(player, final_team)
                     votes.append(vote)
+                    votes_dict[player.name] = vote
                     print(f"  {player.name}: {'APPROVE' if vote else 'REJECT'}")
+
+                # Log votes
+                self.logger.log_votes(proposal_log, votes_dict)
 
                 approve_count = sum(votes)
                 approved = approve_count > len(votes) / 2
@@ -598,21 +572,33 @@ Your assassination target:"""
                 print(f"\nResult: {approve_count} approve, {len(votes) - approve_count} reject → {'APPROVED' if approved else 'REJECTED'}")
 
             if approved:
+                # Add proposal to round log
+                round_log['proposals'].append(proposal_log)
+
                 # Run mission
                 print(f"\n{'─'*60}")
                 print("MISSION PHASE")
                 print(f"{'─'*60}")
 
                 mission_actions = []
+                mission_actions_dict = {}
                 for player in final_team:
                     action = self.ai_mission_action(player)
                     mission_actions.append(action)
+                    mission_actions_dict[player.name] = action
                     print(f"  {player.name}: {'SUCCESS' if action else 'FAIL'}")
 
                 success_count = sum(mission_actions)
                 mission_success = success_count == len(final_team)
 
                 print(f"\nMission Result: {'SUCCESS' if mission_success else 'FAIL'}")
+
+                # Log mission result
+                self.logger.log_mission(round_log, final_team_names, mission_actions_dict, mission_success)
+
+                # Add round to game log
+                self.logger.game_log['rounds'].append(round_log)
+
                 self.game.mission_results.append(mission_success)
                 return mission_success
             else:
@@ -636,7 +622,12 @@ Your assassination target:"""
         target = self.ai_assassinate(assassin)
         print(f"\nAssassin targets: {target.name}")
 
-        if target.role == 'Merlin':
+        target_was_merlin = (target.role == 'Merlin')
+
+        # Log assassination
+        self.logger.log_assassination(assassin.name, target.name, target_was_merlin)
+
+        if target_was_merlin:
             print(f"\n{target.name} was Merlin! EVIL WINS!")
             return False
         else:
@@ -671,11 +662,20 @@ Your assassination target:"""
 
     def print_final_result(self, good_victory):
         """Print final game result."""
+        winner = 'GOOD' if good_victory else 'EVIL'
+        mission_results = ['SUCCESS' if r else 'FAIL' for r in self.game.mission_results]
+
+        # Log final result
+        self.logger.log_final_result(winner, mission_results)
+
+        # Save game log
+        self.logger.save()
+
         print(f"\n{'='*60}")
         print("GAME OVER")
         print(f"{'='*60}")
-        print(f"\nWinner: {'GOOD' if good_victory else 'EVIL'}")
-        print(f"\nMission Results: {['SUCCESS' if r else 'FAIL' for r in self.game.mission_results]}")
+        print(f"\nWinner: {winner}")
+        print(f"\nMission Results: {mission_results}")
         print(f"\nFinal Roles:")
         for p in self.game.players:
             print(f"  {p.name}: {p.role} ({'Evil' if p.is_evil else 'Good'})")
