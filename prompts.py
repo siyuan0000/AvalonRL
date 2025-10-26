@@ -1,6 +1,7 @@
 """
 AI Prompts for Avalon Game
 All prompts used for AI decision-making in the game.
+Enhanced with strategic reasoning, behavioral memory, and game history analysis.
 """
 
 
@@ -8,44 +9,77 @@ class AvalonPrompts:
     """Collection of prompts for different game phases."""
 
     @staticmethod
-    def team_proposal(role_info, game_state, player_names, team_size):
+    def team_proposal(role_info, game_state, player_names, team_size, game_history=""):
         """Prompt for leader to propose initial team."""
+        history_section = f"\nGAME HISTORY:\n{game_history}\n" if game_history else ""
+
         return f"""You are playing Avalon. {role_info}
 
 {game_state}
 Players: {player_names}
-
+{history_section}
 You are the leader. You must select exactly {team_size} players for this mission.
 
-STRATEGIC GUIDANCE:
-- Consider previous mission results and player behavior patterns
-- If previous missions failed, evaluate which players were on those teams
-- If you are Merlin, avoid selecting known Evil players (but don't make it too obvious)
-- If you are Evil, you may strategically include one Evil teammate to cause failure (but be subtle)
-- If you are a Loyal Servant or Percival, select players who have shown trustworthy behavior
-- Evaluate each player's credibility and strategic value based on past discussions
-- Think about what team composition would best achieve your faction's goals
+STRATEGIC ANALYSIS FRAMEWORK:
 
-REASONING PROCESS:
-1. First, analyze the game situation and each player's trustworthiness
-2. Consider your role's knowledge and how to use it without revealing yourself
-3. Think about which combination of players will help your side win
-4. Then make your selection
+1. ROLE-BASED STRATEGY:
+   - If you are Merlin: You know who Evil players are. Avoid them subtly without revealing your knowledge.
+     * Don't exclude all Evil players immediately - that's too obvious
+     * Balance mission success with protecting your identity
+   - If you are Evil (Morgana/Assassin): Include yourself or Evil teammate to sabotage, but maintain cover.
+     * Early game: May pass missions to build trust
+     * Late game: Must fail missions if Evil is behind
+   - If you are Percival: You see Merlin+Morgana but can't distinguish them. Trust proven Good players.
+   - If you are Loyal Servant: Rely on behavioral patterns, voting history, and mission results.
 
-IMPORTANT: After your analysis, output ONLY a comma-separated list of player names, nothing else.
+2. HISTORICAL PATTERN ANALYSIS:
+   - Review WHO was on failed missions → likely contains Evil players
+   - Review WHO proposed failed teams → may indicate Evil leader or bad judgment
+   - Review WHO voted REJECT on successful teams → suspicious behavior
+   - Review WHO voted APPROVE on failed teams → potential Evil accomplices
+   - Identify players with consistent pro-Good voting patterns → trustworthy
+   - Note any players who frequently appear on both failed and successful missions → ambiguous
+
+3. BEHAVIORAL MEMORY:
+   - Who has been overly defensive or deflecting blame?
+   - Who has made accurate predictions about other players?
+   - Who consistently proposes balanced, reasonable teams?
+   - Who seems to have "insider knowledge" (could be Merlin or Evil)?
+
+4. CURRENT MISSION CONTEXT:
+   - How many successes/fails so far? What does your faction NEED?
+   - Is this a critical mission (e.g., 2-2 score)?
+   - Should you prioritize safety (proven players) or take calculated risks?
+
+5. TEAM COMPOSITION STRATEGY:
+   - Include yourself (shows confidence, helps control outcome)
+   - Include players with proven track records
+   - Consider including one "questionable" player to test their loyalty
+   - Balance between trusted allies and information-gathering
+
+DECISION PROCESS:
+1. Analyze each player's trustworthiness score based on history
+2. Apply your role's special knowledge (if any)
+3. Select team that maximizes success probability for YOUR faction
+4. Ensure selection doesn't reveal your role (especially if Merlin or Evil)
+
+IMPORTANT: After your analysis, output ONLY a comma-separated list of {team_size} player names, nothing else.
 Example format: Alice,Bob,Charlie
 
 Your selection:"""
 
     @staticmethod
-    def discussion(role_info, game_state, leader_name, proposed_team, discussion_history):
+    def discussion(role_info, game_state, leader_name, proposed_team, discussion_history, game_history=""):
         """Prompt for player to discuss proposed team."""
         # Format discussion history
         history_text = "\n".join([f"  {name}: {comment}" for name, comment in discussion_history]) if discussion_history else "  (No previous comments)"
 
+        game_history_section = f"\nGAME HISTORY:\n{game_history}\n" if game_history else ""
+
         return f"""You are playing Avalon. {role_info}
 
 {game_state}
+{game_history_section}
 Leader {leader_name} has proposed this team: {proposed_team}
 
 Previous discussion:
@@ -53,33 +87,71 @@ Previous discussion:
 
 You now have the opportunity to discuss this proposal strategically.
 
-DISCUSSION GUIDANCE:
-- Reference specific evidence from previous missions or player behavior
-- If past missions failed, you can point out suspicious participants: "Player X was on the failed mission"
-- If you trust the leader's judgment, cite their past reasonable suggestions
-- Express support or concerns with concrete reasoning, not vague statements
-- DO NOT reveal your role directly (e.g., don't say "I am Merlin")
-- You can hint at trust/suspicion: "I trust Player Y based on their voting pattern"
-- If you are Evil, strategically create doubt or defend teammates without being obvious
-- If you are Good, try to identify suspicious behavior and build consensus
+DISCUSSION STRATEGY FRAMEWORK:
+
+1. EVIDENCE-BASED REASONING:
+   - Reference specific past missions: "Player X was on Round 2's failed mission"
+   - Cite voting patterns: "Player Y has consistently rejected Good teams"
+   - Point out contradictions: "Player Z supported a team that failed"
+   - Build on others' observations: "I agree with [Player]'s concern about..."
+
+2. ROLE-SPECIFIC DISCUSSION TACTICS:
+   - If you are Merlin: Guide discussion subtly. Raise concerns about Evil players WITHOUT revealing you know for certain.
+     * Use probabilistic language: "I'm suspicious of X based on their voting"
+     * Don't be too accurate too often - it reveals you
+   - If you are Evil: Create doubt and confusion. Defend Good players selectively to appear trustworthy.
+     * Deflect suspicion from Evil teammates casually
+     * Sometimes agree with valid concerns to build credibility
+   - If you are Percival: You can be more vocal in supporting Good decisions.
+     * Hint that you have information (to protect Merlin)
+     * Build trust by making accurate observations
+   - If you are Loyal Servant: Use pure logic and pattern analysis.
+     * Question inconsistencies in others' behavior
+     * Support proposals with clear reasoning
+
+3. BEHAVIORAL ANALYSIS:
+   - Has this leader made good choices before?
+   - Are there suspicious players on this team?
+   - Does this team composition make strategic sense?
+   - Is anyone being too pushy or too quiet?
+
+4. PERSUASION TACTICS:
+   - Be specific: Name players and cite specific rounds/votes
+   - Be confident: State your opinion clearly
+   - Be strategic: Don't reveal all your knowledge at once
+   - Build alliances: Agree with players you trust
+
+5. DECEPTION DETECTION (for Good players):
+   - Who is deflecting blame onto innocent players?
+   - Who is defending suspicious players without good reason?
+   - Who seems to have voting patterns that align with failed missions?
+
+6. COVER MAINTENANCE (for Evil players):
+   - Occasionally raise valid concerns to appear analytical
+   - Don't always defend your Evil teammate
+   - Sometimes support Good proposals to blend in
+   - Create confusion by questioning trusted players
 
 IMPORTANT RULES:
 - Do NOT explicitly state your role or other players' roles
 - Reference past observations and discussions to support your point
-- Be persuasive but subtle - state your reasoning concisely
-- Output a brief comment (1-2 sentences) with clear, strategic reasoning
+- Be persuasive but subtle - state your reasoning concisely (1-2 sentences)
+- Use concrete evidence from game history
 
 Your comment:"""
 
     @staticmethod
-    def leader_final_decision(role_info, game_state, player_names, initial_team, team_size, discussion_history):
+    def leader_final_decision(role_info, game_state, player_names, initial_team, team_size, discussion_history, game_history=""):
         """Prompt for leader to make final team decision after discussion."""
         # Format discussion history
         history_text = "\n".join([f"  {name}: {comment}" for name, comment in discussion_history])
 
+        game_history_section = f"\nGAME HISTORY:\n{game_history}\n" if game_history else ""
+
         return f"""You are playing Avalon. {role_info}
 
 {game_state}
+{game_history_section}
 Players: {player_names}
 
 You initially proposed: {initial_team}
@@ -89,24 +161,54 @@ Discussion from other players:
 
 Now you must make your FINAL decision based on the discussion feedback.
 
-STRATEGIC ANALYSIS:
-- Review each player's comments and concerns about your proposal
-- If multiple players raised valid concerns about a team member, consider replacing them
-- Balance short-term (this mission) and long-term (overall victory) strategy
-- Consider how many missions your side needs to win/lose
-- Identify which players currently have higher trust levels
-- If you are Good and facing multiple failures, prioritize the most reliable players
-- If you are Evil, you may sacrifice a teammate strategically or adjust to avoid suspicion
+STRATEGIC RESPONSE FRAMEWORK:
 
-DECISION PROCESS:
-1. Evaluate the validity of each comment in the discussion
-2. Assess whether concerns raised affect your team's success probability
-3. Decide if keeping your original team or modifying it better serves your goals
-4. Consider the overall game state (how many successes/failures so far)
+1. EVALUATE DISCUSSION FEEDBACK:
+   - Which concerns are valid vs. which are attempts to manipulate?
+   - Are Evil players trying to get you to remove Good players?
+   - Are Good players raising legitimate suspicions?
+   - Who is being defensive vs. who is being analytical?
 
-Based on the discussion, you can:
-1. Keep your original proposal (if it still seems optimal)
-2. Modify your team selection (if feedback suggests better alternatives)
+2. TRUST ASSESSMENT:
+   - Who provided concrete evidence vs. vague concerns?
+   - Who has been accurate in their past predictions?
+   - Whose concerns align with actual game patterns?
+   - Who might be Evil trying to sabotage your team?
+
+3. ROLE-SPECIFIC DECISION MAKING:
+   - If you are Merlin: You KNOW who is Evil. Weight comments accordingly.
+     * Ignore Evil players trying to add Evil teammates
+     * Listen to other Good players' concerns (they might spot patterns you missed)
+   - If you are Evil: Maintain your cover while including Evil players if needed.
+     * If called out, consider adjusting to avoid suspicion
+     * If discussion went smoothly, keep Evil teammate on team
+   - If you are Percival: Trust comments from players you believe are Merlin.
+     * Be wary of Morgana's suggestions (if you can identify them)
+   - If you are Loyal Servant: Use collective intelligence.
+     * Weight concerns from multiple players heavily
+     * Look for consensus among trusted players
+
+4. GAME STATE CONSIDERATIONS:
+   - How critical is this mission? (Current score: {game_state})
+   - Can you afford to take risks, or must you play it safe?
+   - Is it more important to succeed or to gather information?
+
+5. TEAM MODIFICATION CRITERIA:
+   - KEEP original team if: Discussion reveals no new credible information
+   - MODIFY team if: Multiple trusted players raise valid concerns
+   - CONSIDER: Replacing questioned player with consensus trusted player
+
+6. META-GAME AWARENESS:
+   - How will your decision be perceived by others?
+   - Does changing your team make you look weak or responsive?
+   - Does stubbornly keeping your team make you look suspicious or confident?
+
+DECISION CHECKLIST:
+□ Have I considered all concerns raised?
+□ Does this team maximize my faction's win probability?
+□ Am I being manipulated by Evil players (if Good)?
+□ Am I maintaining my cover (if Evil)?
+□ Is the final team composition defensible?
 
 You must select exactly {team_size} players for this mission.
 
@@ -116,114 +218,350 @@ Example format: Alice,Bob,Charlie
 Your final team:"""
 
     @staticmethod
-    def vote(role_info, game_state, proposed_team):
+    def vote(role_info, game_state, proposed_team, game_history=""):
         """Prompt for player to vote on proposed team."""
+        game_history_section = f"\nGAME HISTORY:\n{game_history}\n" if game_history else ""
+
         return f"""You are playing Avalon. {role_info}
 
 {game_state}
+{game_history_section}
 Proposed team: {proposed_team}
 
 You must vote to APPROVE or REJECT this team.
 
-STRATEGIC VOTING GUIDANCE:
+STRATEGIC VOTING FRAMEWORK:
 
-For GOOD players (Loyal Servant, Merlin, Percival):
-- Basically, if you are in the proposal team, you should APPROVE it.
-- APPROVE teams that seem trustworthy and likely to succeed
-- REJECT teams with suspicious players or those who participated in failed missions
-- Consider the voting patterns of other players - consistent opposition may indicate Evil
-- If you are Merlin, use your knowledge carefully without revealing yourself
-- If you are Percival, you should stand out to say you are Percival, and to lead the team.
+1. TEAM COMPOSITION ANALYSIS:
+   - Review each team member's history:
+     * How many missions have they been on?
+     * Were those missions successful or failed?
+     * What is their voting pattern?
+   - Are there any confirmed or highly suspected Evil players on this team?
+   - Does this team make strategic sense given the current score?
 
+2. ROLE-SPECIFIC VOTING STRATEGY:
 
-For EVIL players (Morgana, Assassin):
-- You can APPROVE teams strategically to avoid suspicion (appearing cooperative)
-- You can REJECT teams to create chaos and make Good players doubt each other
-- Sometimes approving a Good team helps you blend in
-- Rejecting too many teams may expose you, but strategic rejections sow confusion
-- Balance your voting to maintain cover while advancing Evil's goals
+   For MERLIN:
+   - You KNOW who is Evil. Use this knowledge carefully.
+   - REJECT teams with Evil players (unless you need to hide your knowledge)
+   - APPROVE teams with only Good players
+   - BALANCE: Sometimes let one marginal team pass to avoid revealing yourself
+   - Consider: If you reject every Evil team, Assassin will find you
 
-VOTING STRATEGY:
-1. Analyze the team composition based on your role knowledge
-2. Consider past mission results and player behavior
-3. Think about how this vote affects others' perception of you
-4. Decide whether approving or rejecting better serves your faction
+   For PERCIVAL:
+   - You can be more vocal and active than Merlin
+   - APPROVE teams without suspicious players
+   - REJECT teams with patterns suggesting Evil involvement
+   - DEFEND players you believe are Merlin (drawing Assassin's attention to yourself)
+   - Consider: Your role is to protect Merlin by being a decoy
+
+   For LOYAL SERVANT:
+   - Use pure behavioral analysis and pattern recognition
+   - APPROVE teams with players who have good track records
+   - REJECT teams with players who were on multiple failed missions
+   - Trust voting patterns: players who consistently support Good teams are likely Good
+   - Consider: You are the "voice of reason" - use logic and evidence
+
+   For EVIL (Morgana/Assassin):
+   - Your goal: Make Good doubt each other while advancing Evil's agenda
+   - EARLY GAME: Approve good teams to build trust
+   - MID GAME: Strategically reject Good teams to create chaos
+   - LATE GAME: Block Good teams if Evil is close to winning
+   - COVER MAINTENANCE: Don't vote with your Evil teammate too obviously
+   - CHAOS CREATION: Sometimes approve teams that will fail (if you're on them)
+
+3. VOTING PATTERN AWARENESS:
+   - Who else is likely to approve/reject this team?
+   - How will your vote be perceived by others?
+   - Are you voting consistently with your past behavior?
+   - If you're on the team, you should usually APPROVE it — rejecting your own inclusion is highly suspicious and unrealistic
+
+4. GAME STATE URGENCY:
+   - Current score: {game_state}
+   - How many rejections so far this round?
+   - Is this approaching the 5th vote (forced mission)?
+   - Does your faction NEED this mission to succeed/fail?
+
+5. LEADER ANALYSIS:
+   - Has this leader proposed good teams before?
+   - Is this leader likely Good or Evil based on patterns?
+   - Are they responding well to discussion feedback?
+
+6. META-CONSIDERATIONS:
+   - APPROVE if: Team seems trustworthy AND rejecting would make you suspicious
+   - REJECT if: Team has clear red flags AND others will likely reject too
+   - STRATEGIC APPROVE: Even if suspicious, to avoid looking obstructionist
+   - STRATEGIC REJECT: Even if decent, to create chaos (Evil strategy)
+
+BEHAVIORAL MEMORY CHECK:
+- Review past missions: Who was on failed missions?
+- Review past votes: Who has suspicious voting patterns?
+- Review discussions: Who has made accurate/suspicious comments?
+
+DECISION RULES:
+- Good players: Approve teams likely to succeed, reject suspicious teams
+- Evil players: Balance appearing cooperative with blocking Good progress
+- Everyone: Consider how your vote affects others' perception of you
+- GENERAL RULE: If you're on the proposed team, you should strongly lean toward APPROVE unless you have a powerful strategic reason not to
 
 IMPORTANT: After your analysis, output ONLY one word: either "APPROVE" or "REJECT", nothing else.
 
 Your vote:"""
 
     @staticmethod
-    def mission_action(role_info, game_state):
+    def mission_action(role_info, game_state, game_history=""):
         """Prompt for player to choose mission action."""
+        game_history_section = f"\nGAME HISTORY:\n{game_history}\n" if game_history else ""
+
         return f"""You are playing Avalon. {role_info}
 
 {game_state}
-
+{game_history_section}
 You are on the mission. Choose your action.
 
 ROLE-BASED REQUIREMENTS:
 - GOOD players (Loyal Servant, Merlin, Percival) MUST choose "SUCCESS"
 - EVIL players (Morgana, Assassin) MAY choose "SUCCESS" or "FAIL"
 
+═══════════════════════════════════════════════════════════════
+
 STRATEGIC GUIDANCE FOR EVIL PLAYERS:
 
-When to choose FAIL:
-- If Evil needs mission failures to win (check current mission status)
-- If your identity is not yet suspected, causing a failure can advance Evil's goals
-- Consider: "How many failures does Evil need to win?"
+SITUATION ANALYSIS:
+Current mission status: {game_state}
+- How many missions has Evil failed so far?
+- How many more failures does Evil need to win?
+- How many missions can Evil afford to pass before it's too late?
 
-When to choose SUCCESS:
-- If causing a failure would make you too obvious (especially early in the game)
-- If you want to maintain cover and blend in with Good players
-- If Evil already has enough failures and one more would expose you
-- Strategic SUCCESS can confuse Good players about team composition
+DECISION TREE FOR EVIL:
+
+┌─ EARLY GAME (First 1-2 missions) ─┐
+│ Consider: SUCCESS to build trust   │
+│ ✓ Creates cover for later rounds   │
+│ ✓ Makes you seem like a Good player│
+│ ✗ Delays Evil's progress           │
+│ Choose SUCCESS if:                  │
+│   - You haven't been suspected yet  │
+│   - Building trust is more valuable │
+│   - Other Evil can fail later       │
+└────────────────────────────────────┘
+
+┌─ MID GAME (Missions 2-4) ─┐
+│ Critical decision point     │
+│ FAIL if:                    │
+│   - Evil needs failures NOW │
+│   - You're not highly suspected│
+│   - This is a safe opportunity│
+│ SUCCESS if:                 │
+│   - You're under suspicion  │
+│   - One failure would expose you│
+│   - Evil can afford to wait │
+└────────────────────────────┘
+
+┌─ LATE GAME (Mission 4-5) ─┐
+│ URGENT - Evil must act      │
+│ FAIL if:                    │
+│   - Evil needs this to win  │
+│   - Even if suspicious, it's now or never│
+│ SUCCESS if:                 │
+│   - Evil already has enough failures│
+│   - Good has 2 successes already│
+└────────────────────────────┘
+
+SUSPICION LEVEL ASSESSMENT:
+- Have you been on multiple teams?
+- Have previous missions you were on failed?
+- Did anyone raise concerns about you in discussion?
+- How many times have you voted suspiciously?
+
+RISK CALCULATION:
+HIGH RISK to fail mission if:
+  - You're the only Evil on this team (100% you'll be identified)
+  - You were questioned heavily in discussion
+  - You've been on previous failed missions
+  - Other players are watching you closely
+
+LOW RISK to fail mission if:
+  - Another Evil player is also on this team (shared blame)
+  - This is your first mission
+  - Discussion went smoothly with no suspicion
+  - You've successfully passed previous missions (built trust)
+
+STRATEGIC CONSIDERATIONS:
+
+1. SHARED BLAME ADVANTAGE:
+   - If another Evil is on this team: You can both fail, or one can pass to create confusion
+   - If you're alone: Failing clearly identifies you
+
+2. REPUTATION MANAGEMENT:
+   - Passing 1-2 missions: Builds strong trust
+   - Failing 2+ missions: Almost certainly exposes you
+   - Mix of pass/fail: Creates uncertainty (Good might think you're being framed)
+
+3. ENDGAME AWARENESS:
+   - If Evil has 2 failures: Consider failing to win immediately (unless too obvious)
+   - If Good has 2 successes: MUST fail now or Evil loses
+   - If score is 2-2: Critical mission - both sides desperate
+
+4. MERLIN DECEPTION:
+   - Merlin knows you're Evil
+   - Passing missions convincingly makes Merlin doubt whether to reveal suspicions
+   - If you pass enough missions, Assassin might eliminate you from Merlin candidates
 
 DECISION PROCESS:
-1. Check the current mission results (how many successes/failures so far)
-2. Assess how suspicious you would appear if you cause a failure now
-3. Calculate if Evil needs this failure to win, or if you can wait
+1. Assess current score and how many failures Evil NEEDS
+2. Evaluate your suspicion level (low/medium/high)
+3. Consider if this is your best opportunity or if you should wait
 4. Balance immediate goals (failing missions) with long-term cover (staying hidden)
-5. Remember: Being too obvious helps Good identify you for later rounds
+5. Make the choice that maximizes Evil's overall win probability
 
 IMPORTANT: After your analysis, output ONLY one word: either "SUCCESS" or "FAIL", nothing else.
 
 Your action:"""
 
     @staticmethod
-    def assassination(role_info, good_players):
+    def assassination(role_info, good_players, game_history=""):
         """Prompt for Assassin to choose assassination target."""
+        game_history_section = f"\nGAME HISTORY:\n{game_history}\n" if game_history else ""
+
         return f"""You are playing Avalon. {role_info}
 
 The Good team has won 3 missions! As the Assassin, you have ONE chance to kill Merlin and win the game for Evil.
 
 Good players: {good_players}
-
+{game_history_section}
 CRITICAL MISSION: Identify and assassinate Merlin.
 
-CLUES TO FIND MERLIN:
-- Review the entire game history: discussions, team proposals, and voting patterns
-- Merlin knows all Evil players, so they may have subtly guided Good teams
-- Who frequently made valuable suggestions that led to successful missions?
-- Who proposed teams that consistently excluded Evil players?
-- Who voted in ways that suggest they knew which players to trust/distrust?
-- Who seemed to have information they shouldn't have as a regular Loyal Servant?
-- Be careful: Percival also has special knowledge (sees Merlin and Morgana)
+═══════════════════════════════════════════════════════════════
+MERLIN IDENTIFICATION FRAMEWORK
+═══════════════════════════════════════════════════════════════
 
-ANALYSIS PROCESS:
-1. Review each Good player's behavior throughout the game
-2. Identify who showed the most strategic insight and accurate judgments
-3. Consider who was most influential in forming successful teams
-4. Distinguish between Merlin (has definitive knowledge) and lucky/smart Loyal Servants
-5. Percival may also seem informed, but they only see you (Morgana) and Merlin as "two possible Merlins"
+CORE PRINCIPLE: Merlin KNOWS all Evil players but must hide this knowledge.
 
-STRATEGIC THINKING:
-- Merlin will try to guide Good without being obvious (to avoid this assassination)
-- Look for players who were subtly influential rather than overtly leading
-- Players who consistently made good decisions but claimed to be "just guessing"
-- Players who avoided being on too many missions (Merlin stays hidden)
+1. TEAM PROPOSAL ANALYSIS:
+   Review each Good player's team proposals:
 
-Based on all evidence from discussions, proposals, votes, and mission results, deduce who is most likely Merlin.
+   ┌─ Strong Merlin Indicators ─┐
+   │ ✓ Consistently excluded Evil players from teams          │
+   │ ✓ Proposed teams that ALL succeeded                       │
+   │ ✓ Made "lucky" choices that avoided Evil players          │
+   │ ✓ Showed inexplicable accuracy in team selection          │
+   └────────────────────────────────────────────────────────────┘
+
+   ┌─ NOT Merlin Indicators ─┐
+   │ ✗ Proposed teams with Evil players on them                │
+   │ ✗ Made poor choices that Good players had to correct      │
+   │ ✗ Showed genuine confusion about who to trust             │
+   └────────────────────────────────────────────────────────────┘
+
+2. VOTING PATTERN ANALYSIS:
+   Review voting behavior of each Good player:
+
+   ┌─ Merlin Voting Patterns ─┐
+   │ ✓ REJECTED teams with Evil players (even when others approved)│
+   │ ✓ APPROVED teams with only Good players                       │
+   │ ✓ Voting accuracy too high to be luck or deduction            │
+   │ ✓ Early rejection of teams that later proved suspicious       │
+   └───────────────────────────────────────────────────────────────┘
+
+   ┌─ NOT Merlin Voting Patterns ─┐
+   │ ✗ Approved teams that ended up failing                        │
+   │ ✗ Rejected Good teams (showing lack of knowledge)             │
+   │ ✗ Inconsistent voting pattern (genuine uncertainty)           │
+   └───────────────────────────────────────────────────────────────┘
+
+3. DISCUSSION BEHAVIOR ANALYSIS:
+   Review what each Good player said during discussions:
+
+   ┌─ Merlin Discussion Clues ─┐
+   │ ✓ Made subtle hints about Evil players without proof         │
+   │ ✓ Guided discussions toward correct suspicions               │
+   │ ✓ Raised concerns that were later validated                  │
+   │ ✓ Showed strategic insight beyond what a Loyal Servant should│
+   │ ✓ Was cautiously influential (guiding without dominating)    │
+   └──────────────────────────────────────────────────────────────┘
+
+   ┌─ NOT Merlin Discussion Clues ─┐
+   │ ✗ Was overly vocal and obvious (Percival often does this)    │
+   │ ✗ Made incorrect accusations                                  │
+   │ ✗ Showed genuine uncertainty about players                    │
+   │ ✗ Asked many questions (Merlin already knows)                │
+   └──────────────────────────────────────────────────────────────┘
+
+4. INFLUENCE WITHOUT OBVIOUSNESS:
+   Merlin's dilemma: Guide Good to victory WITHOUT being obvious
+
+   ┌─ How Merlin Typically Behaves ─┐
+   │ • Subtly influential rather than overtly leading              │
+   │ • Makes "suggestions" rather than demands                     │
+   │ • Expresses "concerns" without claiming certainty             │
+   │ • Lets other Good players vocalize what Merlin knows          │
+   │ • Sometimes stays quiet even when could contribute (hiding)   │
+   │ • Builds consensus rather than dictating decisions            │
+   └──────────────────────────────────────────────────────────────┘
+
+5. PERCIVAL VS MERLIN DISTINCTION:
+   ⚠️ WARNING: Percival also has special knowledge (sees Merlin + Morgana)
+
+   ┌─ Percival Characteristics ─┐
+   │ • Often MORE vocal than Merlin (trying to protect Merlin)    │
+   │ • May defend both Merlin and Morgana (can't tell them apart) │
+   │ • Shows confidence but not perfect accuracy                   │
+   │ • Might make mistakes about Evil players (doesn't see them)  │
+   │ • Focuses on protecting "Merlin candidates"                   │
+   └──────────────────────────────────────────────────────────────┘
+
+   ┌─ Merlin Characteristics ─┐
+   │ • Carefully calculated in speech (hiding knowledge)           │
+   │ • NEVER defends Evil players (knows exactly who they are)    │
+   │ • Perfect accuracy on Evil identification (across all rounds) │
+   │ • Tries to stay under the radar                               │
+   │ • Guides teams without taking credit                          │
+   └──────────────────────────────────────────────────────────────┘
+
+6. PROCESS OF ELIMINATION:
+   For EACH Good player, score them on:
+   - Team proposal accuracy (how often did they exclude Evil?)
+   - Voting accuracy (did they vote against Evil-heavy teams?)
+   - Discussion insight (did they show "unexplainable" knowledge?)
+   - Influence level (were they quietly guiding Good to victory?)
+   - Cover maintenance (were they trying NOT to be obvious?)
+
+SCORING EACH GOOD PLAYER:
+
+For each player, assign points:
++3 points: Consistently excluded ALL Evil players from their proposals
++2 points: Voted against teams that later failed
++2 points: Made subtle but accurate comments about suspicious players
++1 point: Was influential but not overtly leading
++1 point: Showed restraint (didn't always speak even when could)
+-2 points: Proposed teams with Evil players
+-2 points: Approved teams that failed
+-1 point: Was too obvious/vocal (likely Percival, not Merlin)
+-1 point: Made incorrect accusations
+
+Player with HIGHEST score = Most likely Merlin
+
+═══════════════════════════════════════════════════════════════
+FINAL ASSASSINATION DECISION
+═══════════════════════════════════════════════════════════════
+
+Review the complete game history above. For each Good player, analyze:
+1. Their team proposals (did they avoid Evil players?)
+2. Their voting patterns (did they reject Evil-heavy teams?)
+3. Their discussion comments (did they show hidden knowledge?)
+4. Their influence style (subtle guidance vs. overt leadership?)
+5. Their accuracy rate (too accurate to be luck?)
+
+Identify the player who:
+- Had the most accurate strategic insights
+- Consistently made Good-favorable decisions
+- Showed knowledge they shouldn't have as a Loyal Servant
+- Was influential but tried to stay subtle
+- Avoided Evil players across multiple rounds
+
+That player is most likely Merlin.
 
 IMPORTANT: After your analysis, output ONLY the name of one player, nothing else.
 
@@ -231,31 +569,31 @@ Your assassination target:"""
 
 
 # Convenience functions for backward compatibility
-def get_team_proposal_prompt(role_info, game_state, player_names, team_size):
+def get_team_proposal_prompt(role_info, game_state, player_names, team_size, game_history=""):
     """Get team proposal prompt."""
-    return AvalonPrompts.team_proposal(role_info, game_state, player_names, team_size)
+    return AvalonPrompts.team_proposal(role_info, game_state, player_names, team_size, game_history)
 
 
-def get_discussion_prompt(role_info, game_state, leader_name, proposed_team, discussion_history):
+def get_discussion_prompt(role_info, game_state, leader_name, proposed_team, discussion_history, game_history=""):
     """Get discussion prompt."""
-    return AvalonPrompts.discussion(role_info, game_state, leader_name, proposed_team, discussion_history)
+    return AvalonPrompts.discussion(role_info, game_state, leader_name, proposed_team, discussion_history, game_history)
 
 
-def get_leader_final_decision_prompt(role_info, game_state, player_names, initial_team, team_size, discussion_history):
+def get_leader_final_decision_prompt(role_info, game_state, player_names, initial_team, team_size, discussion_history, game_history=""):
     """Get leader final decision prompt."""
-    return AvalonPrompts.leader_final_decision(role_info, game_state, player_names, initial_team, team_size, discussion_history)
+    return AvalonPrompts.leader_final_decision(role_info, game_state, player_names, initial_team, team_size, discussion_history, game_history)
 
 
-def get_vote_prompt(role_info, game_state, proposed_team):
+def get_vote_prompt(role_info, game_state, proposed_team, game_history=""):
     """Get vote prompt."""
-    return AvalonPrompts.vote(role_info, game_state, proposed_team)
+    return AvalonPrompts.vote(role_info, game_state, proposed_team, game_history)
 
 
-def get_mission_action_prompt(role_info, game_state):
+def get_mission_action_prompt(role_info, game_state, game_history=""):
     """Get mission action prompt."""
-    return AvalonPrompts.mission_action(role_info, game_state)
+    return AvalonPrompts.mission_action(role_info, game_state, game_history)
 
 
-def get_assassination_prompt(role_info, good_players):
+def get_assassination_prompt(role_info, good_players, game_history=""):
     """Get assassination prompt."""
-    return AvalonPrompts.assassination(role_info, good_players)
+    return AvalonPrompts.assassination(role_info, good_players, game_history)

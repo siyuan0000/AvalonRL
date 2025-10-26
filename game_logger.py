@@ -202,3 +202,97 @@ class GameLogger:
         """Save both JSON and text logs."""
         self.save_json()
         self.save_text()
+
+    def get_game_history_summary(self):
+        """Generate a comprehensive game history summary for AI prompts."""
+        if not self.game_log['rounds']:
+            return "No previous rounds."
+
+        summary_lines = []
+        summary_lines.append("PREVIOUS ROUNDS:")
+
+        for round_data in self.game_log['rounds']:
+            round_num = round_data['round_number']
+            summary_lines.append(f"\n--- Round {round_num} ---")
+
+            # Show all proposals and their outcomes
+            for idx, proposal in enumerate(round_data['proposals']):
+                proposal_num = idx + 1
+                leader = proposal['leader']
+                final_team = proposal['final_team']
+                approved = proposal['approved']
+
+                summary_lines.append(f"Proposal {proposal_num} by {leader}: {final_team}")
+
+                # Show votes if not forced
+                if not proposal.get('forced_mission', False):
+                    approves = [p for p, v in proposal['votes'].items() if v]
+                    rejects = [p for p, v in proposal['votes'].items() if not v]
+                    summary_lines.append(f"  Votes: APPROVE={approves}, REJECT={rejects}")
+
+                summary_lines.append(f"  Result: {'APPROVED' if approved else 'REJECTED'}")
+
+                # If approved, show mission result
+                if approved and 'mission' in round_data:
+                    mission = round_data['mission']
+                    summary_lines.append(f"  Mission Team: {mission['team']}")
+                    success_count = sum(1 for a in mission['actions'].values() if a)
+                    fail_count = len(mission['actions']) - success_count
+                    summary_lines.append(f"  Mission Actions: {success_count} SUCCESS, {fail_count} FAIL")
+                    summary_lines.append(f"  Mission Result: {'SUCCESS' if mission['success'] else 'FAIL'}")
+
+        return "\n".join(summary_lines)
+
+    def get_player_behavioral_summary(self, player_name):
+        """Generate a behavioral summary for a specific player."""
+        if not self.game_log['rounds']:
+            return f"No behavioral data for {player_name} yet."
+
+        summary = {
+            'missions_on': [],
+            'missions_succeeded': [],
+            'missions_failed': [],
+            'proposals_made': [],
+            'votes_approve': 0,
+            'votes_reject': 0,
+            'discussion_comments': []
+        }
+
+        for round_data in self.game_log['rounds']:
+            round_num = round_data['round_number']
+
+            for proposal in round_data['proposals']:
+                # Track proposals
+                if proposal['leader'] == player_name:
+                    summary['proposals_made'].append({
+                        'round': round_num,
+                        'team': proposal['final_team'],
+                        'approved': proposal['approved']
+                    })
+
+                # Track votes
+                if player_name in proposal.get('votes', {}):
+                    if proposal['votes'][player_name]:
+                        summary['votes_approve'] += 1
+                    else:
+                        summary['votes_reject'] += 1
+
+                # Track discussion comments
+                for comment in proposal.get('discussion', []):
+                    if comment['player'] == player_name:
+                        summary['discussion_comments'].append({
+                            'round': round_num,
+                            'comment': comment['comment']
+                        })
+
+            # Track mission participation
+            if 'mission' in round_data:
+                mission = round_data['mission']
+                if player_name in mission['team']:
+                    summary['missions_on'].append(round_num)
+                    if mission['success']:
+                        summary['missions_succeeded'].append(round_num)
+                    else:
+                        summary['missions_failed'].append(round_num)
+
+        return summary

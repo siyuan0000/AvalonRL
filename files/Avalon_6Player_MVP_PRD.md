@@ -50,13 +50,15 @@ The game logic, voting system, and mission structure follow the official Avalon 
      - Evil players see each other.
 
 2. **Leader Rotation**
-   - Round 1: Leader chosen randomly.  
-   - Each round, leadership rotates clockwise.  
+   - Round 1: Leader chosen randomly.
+   - Each round, leadership rotates counter-clockwise (reverse order).
+   - Example: If player order is A→B→C→D→E→F, leader rotation is A→F→E→D→C→B→A
    - The leader selects team members for the mission.
 
 3. **Discussion Phase**
-   - After team proposal, players discuss the proposed team one by one in turn order.
-   - Each player gets a chance to voice their opinion about the proposed team.
+   - After team proposal, players discuss the proposed team one by one in clockwise turn order (A→B→C→D→E→F).
+   - Discussion order is opposite to leader rotation order.
+   - Each player (except current leader) gets a chance to voice their opinion about the proposed team.
    - Leader makes a final summary statement to confirm the final team composition.
    - Discussion helps players gather information and make informed voting decisions.
    - **Exception**: On the 5th consecutive vote (after 4 rejections), discussion phase is skipped.

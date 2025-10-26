@@ -29,7 +29,14 @@ class AvalonGame:
     MISSION_SIZES = [2, 3, 4, 3, 4]
 
     def __init__(self, player_names):
-        """Initialize game with 6 players."""
+        """
+        Initialize game with 6 players.
+
+        Game order rules:
+        - Player list order: Fixed (e.g., Alice, Bob, Charlie, Diana, Eve, Frank)
+        - Discussion order: Clockwise through player list (forward: 0→1→2→3→4→5)
+        - Leader rotation: Counter-clockwise (reverse: decreasing indices)
+        """
         self.players = self.assign_roles(player_names)
         self.leader_index = random.randint(0, 5)
         self.mission_results = []  # True = Success, False = Fail
@@ -80,8 +87,8 @@ class AvalonGame:
         return self.players[self.leader_index]
 
     def rotate_leader(self):
-        """Rotate leadership to next player."""
-        self.leader_index = (self.leader_index + 1) % len(self.players)
+        """Rotate leadership to next player (counter-clockwise/reverse order)."""
+        self.leader_index = (self.leader_index - 1) % len(self.players)
 
     def get_game_state(self):
         """Get current game state summary."""
@@ -304,13 +311,15 @@ class GameController:
         role_info = self.game.get_role_visibility(player)
         game_state = self.game.get_game_state()
         team_names = [p.name for p in proposed_team]
+        game_history = self.logger.get_game_history_summary()
 
         prompt = AvalonPrompts.discussion(
             role_info=role_info,
             game_state=game_state,
             leader_name=leader.name,
             proposed_team=team_names,
-            discussion_history=discussion_history
+            discussion_history=discussion_history,
+            game_history=game_history
         )
 
         ai = self.get_player_ai(player)
@@ -333,6 +342,7 @@ class GameController:
         role_info = self.game.get_role_visibility(leader)
         game_state = self.game.get_game_state()
         initial_team_names = [p.name for p in initial_team]
+        game_history = self.logger.get_game_history_summary()
 
         prompt = AvalonPrompts.leader_final_decision(
             role_info=role_info,
@@ -340,7 +350,8 @@ class GameController:
             player_names=player_names,
             initial_team=initial_team_names,
             team_size=team_size,
-            discussion_history=discussion_history
+            discussion_history=discussion_history,
+            game_history=game_history
         )
 
         ai = self.get_player_ai(leader)
@@ -367,12 +378,14 @@ class GameController:
         player_names = [p.name for p in self.game.players]
         role_info = self.game.get_role_visibility(leader)
         game_state = self.game.get_game_state()
+        game_history = self.logger.get_game_history_summary()
 
         prompt = AvalonPrompts.team_proposal(
             role_info=role_info,
             game_state=game_state,
             player_names=player_names,
-            team_size=team_size
+            team_size=team_size,
+            game_history=game_history
         )
 
         print(f"\n[AI] {leader.name} is proposing a team...")
@@ -401,11 +414,13 @@ class GameController:
         role_info = self.game.get_role_visibility(player)
         game_state = self.game.get_game_state()
         team_names = [p.name for p in proposed_team]
+        game_history = self.logger.get_game_history_summary()
 
         prompt = AvalonPrompts.vote(
             role_info=role_info,
             game_state=game_state,
-            proposed_team=team_names
+            proposed_team=team_names,
+            game_history=game_history
         )
 
         ai = self.get_player_ai(player)
@@ -422,10 +437,12 @@ class GameController:
         """AI player chooses mission action (Success or Fail)."""
         role_info = self.game.get_role_visibility(player)
         game_state = self.game.get_game_state()
+        game_history = self.logger.get_game_history_summary()
 
         prompt = AvalonPrompts.mission_action(
             role_info=role_info,
-            game_state=game_state
+            game_state=game_state,
+            game_history=game_history
         )
 
         ai = self.get_player_ai(player)
@@ -449,10 +466,12 @@ class GameController:
         """AI assassin chooses target to kill."""
         player_names = [p.name for p in self.game.players if not p.is_evil]
         role_info = self.game.get_role_visibility(assassin)
+        game_history = self.logger.get_game_history_summary()
 
         prompt = AvalonPrompts.assassination(
             role_info=role_info,
-            good_players=player_names
+            good_players=player_names,
+            game_history=game_history
         )
 
         ai = self.get_player_ai(assassin)
@@ -513,6 +532,8 @@ class GameController:
                 print("DISCUSSION PHASE")
                 print(f"{'─'*60}")
 
+                # Discussion happens in clockwise order (forward through player list)
+                # This is opposite to leader rotation (counter-clockwise)
                 discussion_history = []
                 for player in self.game.players:
                     if player.name != leader.name:  # Skip leader for now
