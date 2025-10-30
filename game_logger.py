@@ -105,8 +105,8 @@ class GameLogger:
         self.game_log['final_result'] = {
             'winner': winner,
             'mission_results': mission_results,
-            'good_wins': sum(1 for r in mission_results if r),
-            'evil_wins': sum(1 for r in mission_results if not r)
+            'good_wins': sum(1 for r in mission_results if r == 'SUCCESS'),
+            'evil_wins': sum(1 for r in mission_results if r == 'FAIL')
         }
 
     def save_json(self):
