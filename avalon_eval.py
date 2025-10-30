@@ -1,46 +1,45 @@
 """
-To write an evaluation script for AvalonRL
+AvalonRL evaluation script
+Runs multiple games and computes win statistics.
 """
 
-from start import (
-    quick_start_mode
-)
-from avalon_ai_game import (
-    AvalonGame,
-    GameController,
-)
+from start import quick_start_mode
+from avalon_ai_game import AvalonGame, GameController
 
-def evaluation(num_runs = 10):
-    """Function to run evaluation of the AvalonRL game."""
+def evaluation(num_runs=10):
+    """Run evaluation of the AvalonRL game with logging support."""
     
     player_names = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank']
-    num_wins_per_player = {} # Track number of wins for each player
-    for name in player_names:
-        num_wins_per_player[name] = 0
-    player_ais = quick_start_mode()
+    num_wins_per_player = {name: 0 for name in player_names}
 
     for run in range(num_runs):
         print(f"\n=== Starting Game {run + 1} ===")
-        # Run game with AI controller
+
+        # Create new AI config and game each run (to reset state)
+        player_ais = quick_start_mode()
         game = AvalonGame(player_names)
         controller = GameController(game, player_ais)
-        results = controller.run_game()
 
-        if results == "Good":
-            for player_i in controller.game.players:
-                if (player_i.is_evil == False): # good player
-                    name = player_i.name
-                    num_wins_per_player[name] += 1
-        else:
-            for player_i in controller.game.players:
-                if (player_i.is_evil == True): # evil player
-                    name = player_i.name
-                    num_wins_per_player[name] += 1
-        
-    print("\n=== Evaluation Results ===")
-    # print win rate for each player
-    for name in player_names:
-        wins = num_wins_per_player[name]
-        win_rate = (wins / num_runs) * 100
-        print(f"{name}: {wins} wins out of {num_runs} games ({win_rate:.2f}%)")
-        
+        # Run game
+        controller.run_game()
+
+        # Extract winner from logger
+        result = controller.logger.game_log['final_result']['winner']  # "GOOD" or "EVIL"
+
+        # Update per-player stats
+        for player in controller.game.players:
+            if result == "GOOD" and not player.is_evil:
+                num_wins_per_player[player.name] += 1
+            elif result == "EVIL" and player.is_evil:
+                num_wins_per_player[player.name] += 1
+
+    # --- Results summary ---
+    print("\n=== Evaluation Summary ===")
+    for name, wins in num_wins_per_player.items():
+        rate = (wins / num_runs) * 100
+        print(f"{name}: {wins}/{num_runs} wins ({rate:.2f}%)")
+
+    good_wins = sum(1 for _ in range(num_runs) if controller.logger.game_log['final_result']['winner'] == "GOOD")
+    evil_wins = num_runs - good_wins
+    print(f"\nGood team win rate: {good_wins/num_runs:.2%}")
+    print(f"Evil team win rate: {evil_wins/num_runs:.2%}")
