@@ -22,3 +22,5 @@
 
 # venv
 avalon
+
+__pycache__/

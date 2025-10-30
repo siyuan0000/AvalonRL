@@ -5,6 +5,7 @@ Runs multiple games and computes win statistics.
 
 from start import quick_start_mode
 from avalon_ai_game import AvalonGame, GameController
+from avalon_ai_game import OllamaAI
 
 def evaluation(num_runs=10):
     """Run evaluation of the AvalonRL game with logging support."""
@@ -16,7 +17,7 @@ def evaluation(num_runs=10):
         print(f"\n=== Starting Game {run + 1} ===")
 
         # Create new AI config and game each run (to reset state)
-        player_ais = quick_start_mode()
+        player_ais = player_ais = [OllamaAI(model_name="Llama-3.2-1B-Instruct-Q6_K") for _ in range(6)]
         game = AvalonGame(player_names)
         controller = GameController(game, player_ais)
 

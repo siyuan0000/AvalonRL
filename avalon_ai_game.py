@@ -9,7 +9,6 @@ from datetime import datetime
 from prompts import AvalonPrompts
 from game_logger import GameLogger
 
-
 class Player:
     """Represents a player in the Avalon game."""
 
@@ -720,7 +719,12 @@ def main():
     game = AvalonGame(player_names)
 
     # Run game with AI controller
-    controller = GameController(game)
+    from avalon_ai_game import OllamaAI
+
+    # lightweight 1B model for smooth gameplay
+    player_ais = [OllamaAI(model_name="Llama-3.2-1B-Instruct-Q6_K") for _ in range(6)]
+
+    controller = GameController(game, player_ais)
     controller.run_game()
 
 
