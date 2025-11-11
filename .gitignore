@@ -20,3 +20,7 @@
 /logs
 *.log
 
+# venv
+avalon
+
+__pycache__/
