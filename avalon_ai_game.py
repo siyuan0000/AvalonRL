@@ -35,7 +35,7 @@ class AvalonGame:
         Game order rules:
         - Player list order: Fixed (e.g., Alice, Bob, Charlie, Diana, Eve, Frank)
         - Discussion order: Clockwise through player list (forward: 0→1→2→3→4→5)
-        - Leader rotation: Counter-clockwise (reverse: decreasing indices)
+        - Leader rotation: Clockwise (same direction as player order)
         """
         self.players = self.assign_roles(player_names)
         self.leader_index = random.randint(0, 5)
@@ -87,8 +87,8 @@ class AvalonGame:
         return self.players[self.leader_index]
 
     def rotate_leader(self):
-        """Rotate leadership to next player (counter-clockwise/reverse order)."""
-        self.leader_index = (self.leader_index - 1) % len(self.players)
+        """Rotate leadership to next player clockwise (increasing indices)."""
+        self.leader_index = (self.leader_index + 1) % len(self.players)
 
     def get_game_state(self):
         """Get current game state summary."""
@@ -337,7 +337,7 @@ class GameController:
         return comment if comment else "I'll trust the leader's judgment."
 
     def ai_leader_final_proposal(self, leader, initial_team, team_size, discussion_history):
-        """AI leader makes final proposal after hearing discussion."""
+        """AI leader makes final proposal after hearing discussion. Returns (team, reasoning)."""
         player_names = [p.name for p in self.game.players]
         role_info = self.game.get_role_visibility(leader)
         game_state = self.game.get_game_state()
@@ -359,7 +359,7 @@ class GameController:
 
         if not response:
             # Fallback: keep initial team
-            return initial_team
+            return initial_team, "Keeping original team (no AI response)"
 
         # Parse the response
         selected_names = [name.strip() for name in response.replace('\n', ',').split(',')]
@@ -368,13 +368,13 @@ class GameController:
         # Ensure we have exactly team_size players
         if len(selected_names) != team_size:
             # Fallback: keep initial team
-            return initial_team
+            return initial_team, "Keeping original team (invalid AI response)"
 
         team = [p for p in self.game.players if p.name in selected_names]
-        return team
+        return team, response
 
     def ai_propose_team(self, leader, team_size):
-        """AI leader proposes a team."""
+        """AI leader proposes a team. Returns (team, reasoning)."""
         player_names = [p.name for p in self.game.players]
         role_info = self.game.get_role_visibility(leader)
         game_state = self.game.get_game_state()
@@ -395,7 +395,7 @@ class GameController:
         if not response:
             # Fallback: random selection
             print(f"  [Fallback] No valid response, selecting randomly")
-            return random.sample(self.game.players, team_size)
+            return random.sample(self.game.players, team_size), "No reasoning provided"
 
         # Parse the response
         selected_names = [name.strip() for name in response.replace('\n', ',').split(',')]
@@ -404,10 +404,10 @@ class GameController:
         # Ensure we have exactly team_size players
         if len(selected_names) != team_size:
             print(f"  [Fallback] Invalid count ({len(selected_names)} != {team_size}), selecting randomly")
-            return random.sample(self.game.players, team_size)
+            return random.sample(self.game.players, team_size), "Random selection (AI response was invalid)"
 
         team = [p for p in self.game.players if p.name in selected_names]
-        return team
+        return team, response
 
     def ai_vote(self, player, proposed_team):
         """AI player votes on proposed team."""
@@ -512,12 +512,13 @@ class GameController:
             is_forced_mission = (self.game.rejection_count == 4)
 
             # Leader proposes initial team
-            initial_team = self.ai_propose_team(leader, team_size)
+            initial_team, leader_reasoning = self.ai_propose_team(leader, team_size)
             initial_team_names = [p.name for p in initial_team]
             print(f"Initial proposal: {initial_team_names}")
 
             # Initialize proposal log
             proposal_log = self.logger.log_proposal(leader.name, initial_team_names, is_forced_mission)
+            self.logger.log_leader_reasoning(proposal_log, leader_reasoning)
 
             # Skip discussion phase on 5th vote
             if is_forced_mission:
@@ -526,28 +527,47 @@ class GameController:
                 print(f"{'─'*60}")
                 print("\nAfter 4 rejections, this team must proceed without voting!")
                 final_team = initial_team
+                final_team_names = initial_team_names
+                self.logger.log_final_team(proposal_log, final_team_names)
             else:
                 # Discussion phase - each player comments in order
                 print(f"\n{'─'*60}")
                 print("DISCUSSION PHASE")
                 print(f"{'─'*60}")
 
-                # Discussion happens in clockwise order (forward through player list)
-                # This is opposite to leader rotation (counter-clockwise)
+                # Discussion happens clockwise, matching leader order
                 discussion_history = []
-                for player in self.game.players:
-                    if player.name != leader.name:  # Skip leader for now
-                        comment = self.ai_discuss_proposal(player, leader, initial_team, discussion_history)
-                        discussion_history.append((player.name, comment))
-                        self.logger.add_discussion_comment(proposal_log, player.name, comment)
-                        print(f"\n{player.name}: {comment}")
+
+                # Leader opens the discussion with initial reasoning
+                leader_opening = self.ai_discuss_proposal(leader, leader, initial_team, discussion_history)
+                discussion_history.append((leader.name, leader_opening))
+                self.logger.add_discussion_comment(proposal_log, leader.name, leader_opening, tag="Leader Opening")
+                print(f"\n{leader.name} (Leader opening): {leader_opening}")
+
+                leader_position = self.game.players.index(leader)
+                discussion_order = [
+                    self.game.players[(leader_position + offset) % len(self.game.players)]
+                    for offset in range(1, len(self.game.players))
+                ]
+
+                for player in discussion_order:
+                    comment = self.ai_discuss_proposal(player, leader, initial_team, discussion_history)
+                    discussion_history.append((player.name, comment))
+                    self.logger.add_discussion_comment(proposal_log, player.name, comment)
+                    print(f"\n{player.name}: {comment}")
+
+                # Leader gives a final summary after hearing everyone
+                leader_summary = self.ai_discuss_proposal(leader, leader, initial_team, discussion_history)
+                discussion_history.append((leader.name, leader_summary))
+                self.logger.add_discussion_comment(proposal_log, leader.name, leader_summary, tag="Leader Summary")
+                print(f"\n{leader.name} (Leader summary): {leader_summary}")
 
                 # Leader's final summary and decision
                 print(f"\n{'─'*60}")
                 print(f"Leader {leader.name} makes final decision after hearing discussion...")
                 print(f"{'─'*60}")
 
-                final_team = self.ai_leader_final_proposal(leader, initial_team, team_size, discussion_history)
+                final_team, final_reasoning = self.ai_leader_final_proposal(leader, initial_team, team_size, discussion_history)
 
                 # Check if team changed
                 initial_names = set(p.name for p in initial_team)
@@ -555,7 +575,7 @@ class GameController:
                 final_team_names = [p.name for p in final_team]
 
                 # Log final team
-                self.logger.log_final_team(proposal_log, final_team_names)
+                self.logger.log_final_team(proposal_log, final_team_names, final_reasoning)
 
                 if initial_names != final_names:
                     print(f"\n{leader.name}: After considering your input, I'm changing my proposal.")
@@ -592,10 +612,10 @@ class GameController:
 
                 print(f"\nResult: {approve_count} approve, {len(votes) - approve_count} reject → {'APPROVED' if approved else 'REJECTED'}")
 
-            if approved:
-                # Add proposal to round log
-                round_log['proposals'].append(proposal_log)
+            # Record proposal outcome for the shared timeline memory
+            round_log['proposals'].append(proposal_log)
 
+            if approved:
                 # Run mission
                 print(f"\n{'─'*60}")
                 print("MISSION PHASE")
@@ -616,9 +636,6 @@ class GameController:
 
                 # Log mission result
                 self.logger.log_mission(round_log, final_team_names, mission_actions_dict, mission_success)
-
-                # Add round to game log
-                self.logger.game_log['rounds'].append(round_log)
 
                 self.game.mission_results.append(mission_success)
                 return mission_success

@@ -11,13 +11,18 @@ class AvalonPrompts:
     @staticmethod
     def team_proposal(role_info, game_state, player_names, team_size, game_history=""):
         """Prompt for leader to propose initial team."""
-        history_section = f"\nGAME HISTORY:\n{game_history}\n" if game_history else ""
+        timeline_section = f"\nSHARED MEMORY TIMELINE (public record of statements, votes, and missions):\n{game_history}\n" if game_history else ""
 
         return f"""You are playing Avalon. {role_info}
 
 {game_state}
 Players: {player_names}
-{history_section}
+{timeline_section}
+TIMELINE MEMORY RULES:
+- The timeline above lists every proposal, discussion quote, vote, and mission outcome in chronological order.
+- Reference specific rounds/players when explaining deductions.
+- Mission failures mean at least one teammate was Evil; successes increase trust in those players.
+
 You are the leader. You must select exactly {team_size} players for this mission.
 
 STRATEGIC ANALYSIS FRAMEWORK:
@@ -74,12 +79,17 @@ Your selection:"""
         # Format discussion history
         history_text = "\n".join([f"  {name}: {comment}" for name, comment in discussion_history]) if discussion_history else "  (No previous comments)"
 
-        game_history_section = f"\nGAME HISTORY:\n{game_history}\n" if game_history else ""
+        timeline_section = f"\nSHARED MEMORY TIMELINE (public record of statements, votes, and missions):\n{game_history}\n" if game_history else ""
 
         return f"""You are playing Avalon. {role_info}
 
 {game_state}
-{game_history_section}
+{timeline_section}
+TIMELINE MEMORY RULES:
+- The timeline above lists every proposal, discussion quote, vote, and mission outcome in chronological order.
+- Reference specific rounds/players when supporting or challenging this team.
+- Mission failures guarantee at least one Evil player on that team; successes grant those players more trust.
+
 Leader {leader_name} has proposed this team: {proposed_team}
 
 Previous discussion:
@@ -146,12 +156,17 @@ Your comment:"""
         # Format discussion history
         history_text = "\n".join([f"  {name}: {comment}" for name, comment in discussion_history])
 
-        game_history_section = f"\nGAME HISTORY:\n{game_history}\n" if game_history else ""
+        timeline_section = f"\nSHARED MEMORY TIMELINE (public record of statements, votes, and missions):\n{game_history}\n" if game_history else ""
 
         return f"""You are playing Avalon. {role_info}
 
 {game_state}
-{game_history_section}
+{timeline_section}
+TIMELINE MEMORY RULES:
+- The timeline above lists every earlier proposal, quote, vote, and mission result in order.
+- Cite specific rounds and players when summarizing the discussion feedback.
+- Mission failures confirm at least one Evil player on that mission team; successes increase their trustworthiness.
+
 Players: {player_names}
 
 You initially proposed: {initial_team}
@@ -220,15 +235,24 @@ Your final team:"""
     @staticmethod
     def vote(role_info, game_state, proposed_team, game_history=""):
         """Prompt for player to vote on proposed team."""
-        game_history_section = f"\nGAME HISTORY:\n{game_history}\n" if game_history else ""
+        timeline_section = f"\nSHARED MEMORY TIMELINE (public record of statements, votes, and missions):\n{game_history}\n" if game_history else ""
 
         return f"""You are playing Avalon. {role_info}
 
 {game_state}
-{game_history_section}
+{timeline_section}
+TIMELINE MEMORY RULES:
+- The timeline above lists every proposal, quote, vote, and mission outcome in order.
+- Reference specific rounds when explaining why you trust or distrust someone.
+- Failed missions prove at least one Evil player was on that team; successful missions increase confidence in those players.
+
 Proposed team: {proposed_team}
 
 You must vote to APPROVE or REJECT this team.
+
+DEFAULT VOTING BIAS:
+- Approving is usually safer for Good because repeated rejections push the track toward a forced 5th vote that often benefits Evil.
+- Reject ONLY when the timeline gives concrete evidence the team is compromised; otherwise lean APPROVE to avoid helping Evil stall.
 
 STRATEGIC VOTING FRAMEWORK:
 
@@ -281,6 +305,7 @@ STRATEGIC VOTING FRAMEWORK:
    - Current score: {game_state}
    - How many rejections so far this round?
    - Is this approaching the 5th vote (forced mission)?
+   - Remember: Hitting the 5th vote auto-approves the next team, which heavily favors Evil because Good loses control.
    - Does your faction NEED this mission to succeed/fail?
 
 5. LEADER ANALYSIS:
@@ -312,12 +337,17 @@ Your vote:"""
     @staticmethod
     def mission_action(role_info, game_state, game_history=""):
         """Prompt for player to choose mission action."""
-        game_history_section = f"\nGAME HISTORY:\n{game_history}\n" if game_history else ""
+        timeline_section = f"\nSHARED MEMORY TIMELINE (public record of statements, votes, and missions):\n{game_history}\n" if game_history else ""
 
         return f"""You are playing Avalon. {role_info}
 
 {game_state}
-{game_history_section}
+{timeline_section}
+TIMELINE MEMORY RULES:
+- The timeline above lists every proposal, discussion quote, vote, and mission result so far.
+- Keep in mind that players will interpret the next timeline entry based on whether this mission succeeds or fails.
+- When a mission fails, everyone immediately knows at least one teammate was Evil; successes increase trust.
+
 You are on the mission. Choose your action.
 
 ROLE-BASED REQUIREMENTS:
@@ -423,14 +453,19 @@ Your action:"""
     @staticmethod
     def assassination(role_info, good_players, game_history=""):
         """Prompt for Assassin to choose assassination target."""
-        game_history_section = f"\nGAME HISTORY:\n{game_history}\n" if game_history else ""
+        timeline_section = f"\nSHARED MEMORY TIMELINE (public record of statements, votes, and missions):\n{game_history}\n" if game_history else ""
 
         return f"""You are playing Avalon. {role_info}
 
 The Good team has won 3 missions! As the Assassin, you have ONE chance to kill Merlin and win the game for Evil.
 
 Good players: {good_players}
-{game_history_section}
+{timeline_section}
+TIMELINE MEMORY RULES:
+- The timeline above records every public statement, vote, and mission result—use it to pinpoint who consistently guided Good toward success.
+- Reference concrete rounds and quotes when weighing each target's likelihood of being Merlin.
+- Remember: Failed missions confirm there was Evil on that team, while successful missions boost credibility for those players.
+
 CRITICAL MISSION: Identify and assassinate Merlin.
 
 ═══════════════════════════════════════════════════════════════

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avalon AI Game - Control Panel</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Avalon AI Game</h1>
+            <p class="subtitle">Social Deduction Game with AI Players</p>
+            <nav>
+                <a href="/" class="active">Control Panel</a>
+                <a href="/viewer">Game Logs</a>
+            </nav>
+        </header>
+
+        <main>
+            <!-- Game Status Section -->
+            <section class="card status-card">
+                <h2>Game Status</h2>
+                <div id="gameStatus" class="status-display">
+                    <div class="status-badge idle">Idle</div>
+                    <p id="statusMessage">Ready to start a new game</p>
+                </div>
+            </section>
+
+            <!-- Configuration Section -->
+            <section class="card config-card">
+                <h2>Game Configuration</h2>
+
+                <!-- Configuration Mode -->
+                <div class="form-group">
+                    <label>Configuration Mode:</label>
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" name="configMode" value="all_same" checked onchange="toggleConfigMode()">
+                            All Players Same AI
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="configMode" value="custom" onchange="toggleConfigMode()">
+                            Custom Per Player
+                        </label>
+                    </div>
+                </div>
+
+                <!-- All Same Configuration -->
+                <div id="allSameConfig" class="config-section">
+                    <h3>AI Backend</h3>
+
+                    <div class="form-group">
+                        <label for="backendSelect">Select Backend:</label>
+                        <select id="backendSelect" onchange="updateBackendOptions()">
+                            <option value="ollama">Ollama (Local)</option>
+                            <option value="deepseek" selected>DeepSeek API (Online)</option>
+                            <option value="local">Local Transformers Model</option>
+                        </select>
+                    </div>
+
+                    <!-- Ollama Options -->
+                    <div id="ollamaOptions" class="backend-options">
+                        <div class="form-group">
+                            <label for="ollamaModel">Model:</label>
+                            <select id="ollamaModel">
+                                <option value="deepseek-r1">deepseek-r1 (Recommended)</option>
+                                <option value="qwen2.5">qwen2.5</option>
+                                <option value="llama3.1">llama3.1</option>
+                                <option value="mistral">mistral</option>
+                            </select>
+                            <button class="btn-secondary" onclick="checkOllama()">Check Ollama</button>
+                        </div>
+                    </div>
+
+                    <!-- DeepSeek API Options -->
+                    <div id="deepseekOptions" class="backend-options" style="display: none;">
+                        <div class="form-group">
+                            <label for="deepseekModel">Model:</label>
+                            <select id="deepseekModel">
+                                <option value="deepseek-chat">deepseek-chat (Recommended)</option>
+                                <option value="deepseek-reasoner">deepseek-reasoner (Advanced)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="apiKey">API Key:</label>
+                            <input type="password" id="apiKey" placeholder="Leave empty to use .env.local">
+                            <small>Optional: Will use .env.local or environment variable if empty</small>
+                        </div>
+                    </div>
+
+                    <!-- Local Model Options -->
+                    <div id="localOptions" class="backend-options" style="display: none;">
+                        <div class="form-group">
+                            <label for="localModelPath">Model Path:</label>
+                            <input type="text" id="localModelPath" placeholder="e.g., Qwen/Qwen2.5-7B-Instruct">
+                            <small>HuggingFace model ID or local path</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Custom Configuration (Hidden by default) -->
+                <div id="customConfig" class="config-section" style="display: none;">
+                    <h3>Custom Player Configuration</h3>
+                    <p class="info-text">Configure each player individually (Coming soon in this interface - use start.py for now)</p>
+                </div>
+
+                <!-- Start Button -->
+                <div class="action-buttons">
+                    <button id="startButton" class="btn-primary" onclick="startGame()">Start Game</button>
+                </div>
+            </section>
+
+            <!-- Recent Games Section -->
+            <section class="card">
+                <h2>Recent Games</h2>
+                <div id="recentGames" class="games-list">
+                    <p class="loading">Loading...</p>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>Avalon AI Game - Research Project</p>
+            <p><a href="https://github.com/anthropics/claude-code">Powered by Claude Code</a></p>
+        </footer>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>

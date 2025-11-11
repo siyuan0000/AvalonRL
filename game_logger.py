@@ -23,6 +23,8 @@ class GameLogger:
             'assassination': None,
             'final_result': None
         }
+        # Track the active round so in-progress proposals can appear in history
+        self.current_round_log = None
 
     def log_players(self, players, player_ais):
         """Log player information including roles and AI configurations."""
@@ -49,34 +51,43 @@ class GameLogger:
 
     def start_round(self, round_num, team_size):
         """Start a new round log."""
-        return {
+        self.current_round_log = {
             'round_number': round_num,
             'team_size': team_size,
             'proposals': []
         }
+        return self.current_round_log
 
     def log_proposal(self, leader, initial_team, is_forced=False):
         """Log a team proposal."""
         return {
             'leader': leader,
             'initial_team': initial_team,
+            'leader_reasoning': '',
             'discussion': [],
             'final_team': [],
+            'leader_final_reasoning': '',
             'votes': {},
             'approved': False,
             'forced_mission': is_forced
         }
 
-    def add_discussion_comment(self, proposal_log, player_name, comment):
+    def add_discussion_comment(self, proposal_log, player_name, comment, tag=None):
         """Add a discussion comment to the proposal log."""
         proposal_log['discussion'].append({
             'player': player_name,
-            'comment': comment
+            'comment': comment,
+            'tag': tag
         })
 
-    def log_final_team(self, proposal_log, final_team):
+    def log_final_team(self, proposal_log, final_team, reasoning=''):
         """Log the final team after discussion."""
         proposal_log['final_team'] = final_team
+        proposal_log['leader_final_reasoning'] = reasoning
+
+    def log_leader_reasoning(self, proposal_log, reasoning):
+        """Log the leader's initial reasoning."""
+        proposal_log['leader_reasoning'] = reasoning
 
     def log_votes(self, proposal_log, votes_dict):
         """Log voting results."""
@@ -90,6 +101,14 @@ class GameLogger:
             'actions': actions,
             'success': success
         }
+        # Mission completion closes the round timeline
+        self.finalize_round(round_log)
+
+    def finalize_round(self, round_log):
+        """Persist completed round data and clear in-progress tracker."""
+        if round_log not in self.game_log['rounds']:
+            self.game_log['rounds'].append(round_log)
+        self.current_round_log = None
 
     def log_assassination(self, assassin, target, success):
         """Log assassination attempt."""
@@ -204,42 +223,70 @@ class GameLogger:
         self.save_text()
 
     def get_game_history_summary(self):
-        """Generate a comprehensive game history summary for AI prompts."""
-        if not self.game_log['rounds']:
-            return "No previous rounds."
+        """Generate a public timeline that every player remembers."""
+        rounds_snapshot = list(self.game_log['rounds'])
 
-        summary_lines = []
-        summary_lines.append("PREVIOUS ROUNDS:")
+        # Include in-progress round so later proposals within same round have context
+        if self.current_round_log and self.current_round_log not in rounds_snapshot:
+            rounds_snapshot.append(self.current_round_log)
 
-        for round_data in self.game_log['rounds']:
+        if not rounds_snapshot:
+            return "No previous rounds or proposals."
+
+        summary_lines = ["PUBLIC MEMORY TIMELINE (statements, votes, and mission outcomes):"]
+
+        def fmt_team(team_list):
+            return "[" + ", ".join(team_list) + "]" if team_list else "[]"
+
+        for round_data in rounds_snapshot:
             round_num = round_data['round_number']
-            summary_lines.append(f"\n--- Round {round_num} ---")
+            status = "IN PROGRESS" if 'mission' not in round_data else "COMPLETED"
+            summary_lines.append(f"\nROUND {round_num} [{status}] - Team size {round_data['team_size']}")
 
-            # Show all proposals and their outcomes
-            for idx, proposal in enumerate(round_data['proposals']):
-                proposal_num = idx + 1
+            if not round_data['proposals']:
+                summary_lines.append("  No proposals have been made yet.")
+                continue
+
+            for idx, proposal in enumerate(round_data['proposals'], start=1):
                 leader = proposal['leader']
-                final_team = proposal['final_team']
-                approved = proposal['approved']
+                forced_flag = " (FORCED 5TH VOTE)" if proposal.get('forced_mission') else ""
+                final_team = proposal['final_team'] or proposal['initial_team']
+                summary_lines.append(f"  Proposal {idx} by {leader}{forced_flag}: team {fmt_team(final_team)}")
 
-                summary_lines.append(f"Proposal {proposal_num} by {leader}: {final_team}")
+                if proposal['discussion']:
+                    summary_lines.append("    Discussion recap:")
+                    for comment in proposal['discussion']:
+                        tag = comment.get('tag')
+                        tag_text = f"[{tag}] " if tag else ""
+                        summary_lines.append(f"      {comment['player']}: {tag_text}{comment['comment']}")
+                else:
+                    summary_lines.append("    Discussion recap: (No comments recorded)")
 
-                # Show votes if not forced
-                if not proposal.get('forced_mission', False):
-                    approves = [p for p, v in proposal['votes'].items() if v]
-                    rejects = [p for p, v in proposal['votes'].items() if not v]
-                    summary_lines.append(f"  Votes: APPROVE={approves}, REJECT={rejects}")
+                if proposal['votes']:
+                    vote_lines = []
+                    for player, vote in proposal['votes'].items():
+                        vote_lines.append(f"{player}={'APPROVE' if vote else 'REJECT'}")
+                    summary_lines.append(f"    Votes: {', '.join(vote_lines)}")
+                elif not proposal.get('forced_mission'):
+                    summary_lines.append("    Votes: (Not recorded)")
+                else:
+                    summary_lines.append("    Votes: Skipped (forced mission)")
 
-                summary_lines.append(f"  Result: {'APPROVED' if approved else 'REJECTED'}")
+                summary_lines.append(f"    Outcome: {'APPROVED' if proposal['approved'] else 'REJECTED'}")
 
-                # If approved, show mission result
-                if approved and 'mission' in round_data:
-                    mission = round_data['mission']
-                    summary_lines.append(f"  Mission Team: {mission['team']}")
-                    success_count = sum(1 for a in mission['actions'].values() if a)
-                    fail_count = len(mission['actions']) - success_count
-                    summary_lines.append(f"  Mission Actions: {success_count} SUCCESS, {fail_count} FAIL")
-                    summary_lines.append(f"  Mission Result: {'SUCCESS' if mission['success'] else 'FAIL'}")
+            if 'mission' in round_data:
+                mission = round_data['mission']
+                mission_team = mission['team']
+                fails = len(mission_team) - sum(1 for action in mission['actions'].values() if action)
+                result = 'SUCCESS' if mission['success'] else 'FAIL'
+                summary_lines.append("  Mission execution:")
+                summary_lines.append(f"    Team sent: {fmt_team(mission_team)}")
+                summary_lines.append(f"    Result: {result} ({fails} fail cards revealed)")
+
+                if mission['success']:
+                    summary_lines.append(f"    Shared deduction: Everyone on {fmt_team(mission_team)} gains trust after the success.")
+                else:
+                    summary_lines.append(f"    Shared deduction: At least one of {fmt_team(mission_team)} must be Evil.")
 
         return "\n".join(summary_lines)
 

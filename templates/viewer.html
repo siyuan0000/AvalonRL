@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avalon AI Game - Log Viewer</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Avalon AI Game</h1>
+            <p class="subtitle">Game Log Viewer</p>
+            <nav>
+                <a href="/">Control Panel</a>
+                <a href="/viewer" class="active">Game Logs</a>
+            </nav>
+        </header>
+
+        <main>
+            <!-- Game Selection -->
+            <section class="card">
+                <h2>Select a Game</h2>
+                <div class="form-group">
+                    <select id="gameSelect" onchange="loadGame()" style="width: 100%;">
+                        <option value="">Loading games...</option>
+                    </select>
+                </div>
+            </section>
+
+            <!-- Game Overview -->
+            <section class="card" id="gameOverview" style="display: none;">
+                <h2>Game Overview</h2>
+                <div class="log-viewer">
+                    <div class="game-info">
+                        <p><strong>Game ID:</strong> <span id="gameId"></span></p>
+                        <p><strong>Timestamp:</strong> <span id="gameTimestamp"></span></p>
+                        <p><strong>Winner:</strong> <span id="gameWinner"></span></p>
+                        <p><strong>Mission Results:</strong> <span id="missionResults"></span></p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Players -->
+            <section class="card" id="playersSection" style="display: none;">
+                <h2>Players</h2>
+                <div id="playersList" class="log-viewer"></div>
+            </section>
+
+            <!-- Rounds -->
+            <section class="card" id="roundsSection" style="display: none;">
+                <h2>Mission Rounds</h2>
+                <div id="roundsList" class="log-viewer"></div>
+            </section>
+
+            <!-- Assassination Phase -->
+            <section class="card" id="assassinationSection" style="display: none;">
+                <h2>Assassination Phase</h2>
+                <div id="assassinationDetails" class="log-viewer"></div>
+            </section>
+
+            <!-- Download Section -->
+            <section class="card" id="downloadSection" style="display: none;">
+                <h2>Export</h2>
+                <div class="action-buttons">
+                    <button class="btn-secondary" onclick="downloadLog()">Download JSON Log</button>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>Avalon AI Game - Research Project</p>
+            <p><a href="https://github.com/anthropics/claude-code">Powered by Claude Code</a></p>
+        </footer>
+    </div>
+
+    <script src="/static/viewer.js"></script>
+</body>
+</html>

@@ -1,0 +1,264 @@
+"""
+Avalon AI Game Web UI
+A simple Flask-based web interface for running and viewing Avalon games.
+"""
+
+from flask import Flask, render_template, request, jsonify, send_file
+import os
+import json
+import subprocess
+from datetime import datetime
+from avalon_ai_game import AvalonGame, GameController, OllamaAI, DeepSeekAPI, LocalModelAI
+from threading import Thread
+import time
+
+app = Flask(__name__)
+
+# Global variable to track running game
+running_game = {
+    'is_running': False,
+    'game_id': None,
+    'status': 'idle',
+    'log_path': None
+}
+
+def load_env_api_key():
+    """Load API key from .env.local file"""
+    env_path = os.path.join(os.path.dirname(__file__), '.env.local')
+    if os.path.exists(env_path):
+        with open(env_path, 'r') as f:
+            for line in f:
+                if line.strip().startswith('DEEPSEEK_API_KEY='):
+                    return line.strip().split('=', 1)[1]
+    return os.environ.get('DEEPSEEK_API_KEY')
+
+def run_game_thread(config):
+    """Run game in a separate thread"""
+    global running_game
+
+    try:
+        running_game['status'] = 'initializing'
+
+        # Initialize players
+        player_names = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank']
+        game = AvalonGame(player_names)
+
+        # Create AI instances based on configuration
+        player_ais = []
+
+        if config['mode'] == 'all_same':
+            # All players use the same AI configuration
+            ai_config = config['ai_config']
+
+            for _ in range(6):
+                if ai_config['backend'] == 'ollama':
+                    player_ais.append(OllamaAI(model_name=ai_config['model']))
+                elif ai_config['backend'] == 'deepseek':
+                    api_key = ai_config.get('api_key') or load_env_api_key()
+                    player_ais.append(DeepSeekAPI(api_key=api_key, model=ai_config['model']))
+                elif ai_config['backend'] == 'local':
+                    player_ais.append(LocalModelAI(model_path=ai_config['model']))
+
+        else:  # custom mode
+            # Each player has their own configuration
+            for player_config in config['players']:
+                if player_config['backend'] == 'ollama':
+                    player_ais.append(OllamaAI(model_name=player_config['model']))
+                elif player_config['backend'] == 'deepseek':
+                    api_key = player_config.get('api_key') or load_env_api_key()
+                    player_ais.append(DeepSeekAPI(api_key=api_key, model=player_config['model']))
+                elif player_config['backend'] == 'local':
+                    player_ais.append(LocalModelAI(model_path=player_config['model']))
+
+        # Run the game
+        running_game['status'] = 'running'
+        controller = GameController(game, player_ais)
+        controller.run_game()
+
+        # Game completed successfully
+        running_game['status'] = 'completed'
+        running_game['game_id'] = controller.logger.game_log['game_id']
+        running_game['log_path'] = os.path.join('logs', f"game_{running_game['game_id']}.json")
+
+    except Exception as e:
+        running_game['status'] = 'error'
+        running_game['error'] = str(e)
+        print(f"Game error: {e}")
+
+    finally:
+        running_game['is_running'] = False
+
+@app.route('/')
+def index():
+    """Main page - game setup and control"""
+    return render_template('index.html')
+
+@app.route('/api/start_game', methods=['POST'])
+def start_game():
+    """Start a new game with the provided configuration"""
+    global running_game
+
+    if running_game['is_running']:
+        return jsonify({'error': 'A game is already running'}), 400
+
+    config = request.json
+
+    # Reset running game state
+    running_game = {
+        'is_running': True,
+        'game_id': None,
+        'status': 'starting',
+        'log_path': None
+    }
+
+    # Start game in a separate thread
+    thread = Thread(target=run_game_thread, args=(config,))
+    thread.daemon = True
+    thread.start()
+
+    return jsonify({'message': 'Game started', 'status': 'starting'})
+
+@app.route('/api/game_status')
+def game_status():
+    """Get current game status"""
+    return jsonify(running_game)
+
+@app.route('/api/logs')
+def list_logs():
+    """List all game logs"""
+    logs_dir = os.path.join(os.path.dirname(__file__), 'logs')
+
+    if not os.path.exists(logs_dir):
+        return jsonify({'logs': []})
+
+    logs = []
+    for filename in os.listdir(logs_dir):
+        if filename.endswith('.json'):
+            filepath = os.path.join(logs_dir, filename)
+            try:
+                with open(filepath, 'r') as f:
+                    data = json.load(f)
+                    logs.append({
+                        'filename': filename,
+                        'game_id': data.get('game_id'),
+                        'timestamp': data.get('timestamp'),
+                        'winner': data.get('final_result', {}).get('winner', 'Unknown')
+                    })
+            except:
+                pass
+
+    # Sort by timestamp, most recent first
+    logs.sort(key=lambda x: x['timestamp'], reverse=True)
+
+    return jsonify({'logs': logs})
+
+@app.route('/api/log/<game_id>')
+def get_log(game_id):
+    """Get a specific game log"""
+    log_file = os.path.join(os.path.dirname(__file__), 'logs', f'game_{game_id}.json')
+
+    if not os.path.exists(log_file):
+        return jsonify({'error': 'Log not found'}), 404
+
+    try:
+        with open(log_file, 'r') as f:
+            log_data = json.load(f)
+        return jsonify(log_data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/log/<game_id>/download')
+def download_log(game_id):
+    """Download a game log as JSON"""
+    log_file = os.path.join(os.path.dirname(__file__), 'logs', f'game_{game_id}.json')
+
+    if not os.path.exists(log_file):
+        return jsonify({'error': 'Log not found'}), 404
+
+    return send_file(log_file, as_attachment=True, download_name=f'game_{game_id}.json')
+
+@app.route('/viewer')
+def viewer():
+    """Game log viewer page"""
+    return render_template('viewer.html')
+
+@app.route('/api/check_ollama')
+def check_ollama():
+    """Check if Ollama is available and list models"""
+    try:
+        result = subprocess.run(['ollama', 'list'],
+                              capture_output=True,
+                              text=True,
+                              timeout=5)
+
+        if result.returncode == 0:
+            # Parse model list
+            lines = result.stdout.strip().split('\n')[1:]  # Skip header
+            models = []
+            for line in lines:
+                if line.strip():
+                    parts = line.split()
+                    if parts:
+                        models.append(parts[0])
+
+            return jsonify({
+                'available': True,
+                'models': models
+            })
+        else:
+            return jsonify({'available': False, 'models': []})
+
+    except Exception as e:
+        return jsonify({'available': False, 'models': [], 'error': str(e)})
+
+def find_free_port(start_port=5000, max_port=5010):
+    """Find a free port to use"""
+    import socket
+    for port in range(start_port, max_port + 1):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(('0.0.0.0', port))
+                return port
+        except OSError:
+            continue
+    return None
+
+if __name__ == '__main__':
+    import sys
+
+    # Create logs directory if it doesn't exist
+    logs_dir = os.path.join(os.path.dirname(__file__), 'logs')
+    if not os.path.exists(logs_dir):
+        os.makedirs(logs_dir)
+
+    # Create templates and static directories if they don't exist
+    templates_dir = os.path.join(os.path.dirname(__file__), 'templates')
+    static_dir = os.path.join(os.path.dirname(__file__), 'static')
+
+    if not os.path.exists(templates_dir):
+        os.makedirs(templates_dir)
+    if not os.path.exists(static_dir):
+        os.makedirs(static_dir)
+
+    # Find available port (only on first run, not on reloader restart)
+    if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
+        port = find_free_port(5000, 5010)
+
+        if port is None:
+            print("\nError: No available ports between 5000 and 5010")
+            print("Please free up a port or disable AirPlay Receiver in System Preferences -> Sharing")
+            exit(1)
+
+        # Store port in environment for reloader
+        os.environ['FLASK_PORT'] = str(port)
+
+        print("\n" + "="*60)
+        print("Avalon AI Game Web UI")
+        print("="*60)
+        print(f"\nStarting server on http://localhost:{port}")
+        print("Press Ctrl+C to stop\n")
+    else:
+        # Reloader process, get port from environment
+        port = int(os.environ.get('FLASK_PORT', 5000))
+
+    app.run(debug=True, host='0.0.0.0', port=port)
