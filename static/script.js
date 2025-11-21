@@ -6,69 +6,7 @@ let statusInterval = null;
 // Initialize page
 document.addEventListener('DOMContentLoaded', function() {
     loadRecentGames();
-    checkOllama();
-    updateBackendOptions();  // Initialize with default backend
 });
-
-// Toggle configuration mode
-function toggleConfigMode() {
-    const mode = document.querySelector('input[name="configMode"]:checked').value;
-    const allSameConfig = document.getElementById('allSameConfig');
-    const customConfig = document.getElementById('customConfig');
-
-    if (mode === 'all_same') {
-        allSameConfig.style.display = 'block';
-        customConfig.style.display = 'none';
-    } else {
-        allSameConfig.style.display = 'none';
-        customConfig.style.display = 'block';
-    }
-}
-
-// Update backend options display
-function updateBackendOptions() {
-    const backend = document.getElementById('backendSelect').value;
-    const ollamaOptions = document.getElementById('ollamaOptions');
-    const deepseekOptions = document.getElementById('deepseekOptions');
-    const localOptions = document.getElementById('localOptions');
-
-    // Hide all options
-    ollamaOptions.style.display = 'none';
-    deepseekOptions.style.display = 'none';
-    localOptions.style.display = 'none';
-
-    // Show selected backend options
-    if (backend === 'ollama') {
-        ollamaOptions.style.display = 'block';
-    } else if (backend === 'deepseek') {
-        deepseekOptions.style.display = 'block';
-    } else if (backend === 'local') {
-        localOptions.style.display = 'block';
-    }
-}
-
-// Check Ollama availability
-async function checkOllama() {
-    try {
-        const response = await fetch('/api/check_ollama');
-        const data = await response.json();
-
-        if (data.available && data.models.length > 0) {
-            const select = document.getElementById('ollamaModel');
-            select.innerHTML = '';
-
-            // Add detected models
-            data.models.forEach(model => {
-                const option = document.createElement('option');
-                option.value = model;
-                option.textContent = model;
-                select.appendChild(option);
-            });
-        }
-    } catch (error) {
-        console.error('Failed to check Ollama:', error);
-    }
-}
 
 // Start a new game
 async function startGame() {
@@ -85,32 +23,13 @@ async function startGame() {
     startButton.textContent = 'Starting...';
 
     // Get configuration
-    const backend = document.getElementById('backendSelect').value;
+    const userMode = document.querySelector('input[name="userMode"]:checked').value;
+    const apiKey = document.getElementById('apiKey').value.trim();
+    
     const config = {
-        mode: 'all_same',
-        ai_config: {
-            backend: backend
-        }
+        user_mode: userMode,
+        api_key: apiKey
     };
-
-    if (backend === 'ollama') {
-        config.ai_config.model = document.getElementById('ollamaModel').value;
-    } else if (backend === 'deepseek') {
-        config.ai_config.model = document.getElementById('deepseekModel').value;
-        const apiKey = document.getElementById('apiKey').value.trim();
-        if (apiKey) {
-            config.ai_config.api_key = apiKey;
-        }
-    } else if (backend === 'local') {
-        const modelPath = document.getElementById('localModelPath').value.trim();
-        if (!modelPath) {
-            alert('Please enter a model path');
-            startButton.disabled = false;
-            startButton.textContent = 'Start Game';
-            return;
-        }
-        config.ai_config.model = modelPath;
-    }
 
     try {
         const response = await fetch('/api/start_game', {
@@ -166,18 +85,29 @@ async function updateGameStatus() {
             statusMessage.textContent = 'Ready to start a new game';
             startButton.disabled = false;
             startButton.textContent = 'Start Game';
+            document.getElementById('interactionCard').style.display = 'none';
             if (statusInterval) {
                 clearInterval(statusInterval);
                 statusInterval = null;
             }
         } else if (status.status === 'starting' || status.status === 'initializing') {
             statusMessage.textContent = 'Game is starting...';
+            document.getElementById('interactionCard').style.display = 'none';
         } else if (status.status === 'running') {
-            statusMessage.textContent = 'Game is running... (this may take several minutes)';
+            statusMessage.textContent = 'Game is running...';
+            
+            // Check for pending input
+            if (status.pending_input) {
+                showInputForm(status.pending_input);
+            } else {
+                document.getElementById('interactionCard').style.display = 'none';
+            }
+            
         } else if (status.status === 'completed') {
             statusMessage.innerHTML = `Game completed! <a href="/viewer?game=${status.game_id}">View results</a>`;
             startButton.disabled = false;
             startButton.textContent = 'Start Another Game';
+            document.getElementById('interactionCard').style.display = 'none';
             if (statusInterval) {
                 clearInterval(statusInterval);
                 statusInterval = null;
@@ -187,6 +117,7 @@ async function updateGameStatus() {
             statusMessage.textContent = 'Error: ' + (status.error || 'Unknown error');
             startButton.disabled = false;
             startButton.textContent = 'Try Again';
+            document.getElementById('interactionCard').style.display = 'none';
             if (statusInterval) {
                 clearInterval(statusInterval);
                 statusInterval = null;
@@ -196,6 +127,157 @@ async function updateGameStatus() {
     } catch (error) {
         console.error('Failed to update status:', error);
     }
+}
+
+function showInputForm(inputRequest) {
+    const card = document.getElementById('interactionCard');
+    const playerSpan = document.getElementById('interactionPlayer');
+    const promptP = document.getElementById('interactionPrompt');
+    const contentDiv = document.getElementById('interactionContent');
+    
+    card.style.display = 'block';
+    playerSpan.textContent = inputRequest.player;
+    
+    const type = inputRequest.type;
+    const data = inputRequest.data;
+    
+    let html = '';
+    
+    if (type === 'discussion') {
+        promptP.textContent = `Discussion Phase: What do you want to say about the proposed team (${data.proposed_team.join(', ')})?`;
+        html = `
+            <div class="form-group">
+                <textarea id="discussionInput" rows="3" placeholder="Enter your comment..."></textarea>
+                <button class="btn-primary" onclick="submitAction(document.getElementById('discussionInput').value)">Submit Comment</button>
+            </div>
+            <div class="info-box">
+                <p><strong>Role Info:</strong> ${data.role_info}</p>
+                <p><strong>Game State:</strong> ${data.game_state}</p>
+            </div>
+        `;
+    } else if (type === 'team_proposal') {
+        promptP.textContent = `You are the Leader! Select ${data.team_size} players for the mission.`;
+        
+        const playersHtml = data.player_names.map(name => `
+            <label class="checkbox-label">
+                <input type="checkbox" name="teamSelect" value="${name}">
+                ${name}
+            </label>
+        `).join('');
+        
+        html = `
+            <div class="form-group">
+                <div class="checkbox-group">
+                    ${playersHtml}
+                </div>
+                <button class="btn-primary" onclick="submitTeamProposal(${data.team_size})">Propose Team</button>
+            </div>
+            <div class="info-box">
+                <p><strong>Role Info:</strong> ${data.role_info}</p>
+            </div>
+        `;
+    } else if (type === 'leader_final_proposal') {
+        promptP.textContent = `Final Decision: Confirm or change your team proposal.`;
+        
+        const playersHtml = data.player_names.map(name => `
+            <label class="checkbox-label">
+                <input type="checkbox" name="teamSelect" value="${name}" ${data.initial_team.includes(name) ? 'checked' : ''}>
+                ${name}
+            </label>
+        `).join('');
+        
+        html = `
+            <div class="form-group">
+                <div class="checkbox-group">
+                    ${playersHtml}
+                </div>
+                <button class="btn-primary" onclick="submitTeamProposal(${data.team_size})">Confirm Team</button>
+            </div>
+            <div class="info-box">
+                <p><strong>Role Info:</strong> ${data.role_info}</p>
+            </div>
+        `;
+    } else if (type === 'vote') {
+        promptP.textContent = `Vote on the proposed team: ${data.proposed_team.join(', ')}`;
+        html = `
+            <div class="action-buttons">
+                <button class="btn-success" onclick="submitAction('APPROVE')">APPROVE</button>
+                <button class="btn-danger" onclick="submitAction('REJECT')">REJECT</button>
+            </div>
+            <div class="info-box">
+                <p><strong>Role Info:</strong> ${data.role_info}</p>
+            </div>
+        `;
+    } else if (type === 'mission_action') {
+        promptP.textContent = `Mission Phase: Choose your action.`;
+        html = `
+            <div class="action-buttons">
+                <button class="btn-success" onclick="submitAction('SUCCESS')">SUCCESS</button>
+                <button class="btn-danger" onclick="submitAction('FAIL')">FAIL</button>
+            </div>
+            <div class="info-box">
+                <p><strong>Role Info:</strong> ${data.role_info}</p>
+                <p class="warning-text">Note: Good players MUST choose SUCCESS.</p>
+            </div>
+        `;
+    } else if (type === 'assassination') {
+        promptP.textContent = `Assassin Phase: Identify Merlin!`;
+        
+        const playersHtml = data.good_players.map(name => `
+            <label class="radio-label">
+                <input type="radio" name="assassinTarget" value="${name}">
+                ${name}
+            </label>
+        `).join('');
+        
+        html = `
+            <div class="form-group">
+                <div class="radio-group">
+                    ${playersHtml}
+                </div>
+                <button class="btn-danger" onclick="submitAssassinTarget()">Assassinate</button>
+            </div>
+            <div class="info-box">
+                <p><strong>Role Info:</strong> ${data.role_info}</p>
+            </div>
+        `;
+    }
+    
+    contentDiv.innerHTML = html;
+}
+
+async function submitAction(action) {
+    try {
+        await fetch('/api/submit_action', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: action})
+        });
+        // Hide card immediately to prevent double submission
+        document.getElementById('interactionCard').style.display = 'none';
+    } catch (error) {
+        console.error('Failed to submit action:', error);
+        alert('Failed to submit action');
+    }
+}
+
+function submitTeamProposal(teamSize) {
+    const checkboxes = document.querySelectorAll('input[name="teamSelect"]:checked');
+    if (checkboxes.length !== teamSize) {
+        alert(`Please select exactly ${teamSize} players.`);
+        return;
+    }
+    const selected = Array.from(checkboxes).map(cb => cb.value);
+    submitAction(selected.join(', '));
+}
+
+function submitAssassinTarget() {
+    const selected = document.querySelector('input[name="assassinTarget"]:checked');
+    if (!selected) {
+        alert('Please select a target.');
+        return;
+    }
+    submitAction(selected.value);
 }
 
 // Load recent games list

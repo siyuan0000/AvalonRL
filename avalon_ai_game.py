@@ -124,6 +124,17 @@ class BaseAI:
         return None
 
 
+class HumanPlayer(BaseAI):
+    """Interface for a human player via Web UI."""
+
+    def __init__(self, name):
+        self.name = name
+
+    def call_model(self, prompt, max_retries=3):
+        """Should not be called directly for human players."""
+        raise NotImplementedError("Human player input should be handled via input_handler")
+
+
 class OllamaAI(BaseAI):
     """Interface to call models via Ollama."""
 
@@ -295,10 +306,21 @@ class GameController:
         """
         self.game = game
         self.player_ais = player_ai_configs
+        self.input_handler = None  # Callback for human input
 
         # Initialize game logger
         self.logger = GameLogger()
         self.logger.log_players(self.game.players, self.player_ais)
+
+    def set_input_handler(self, handler):
+        """Set callback for handling human input."""
+        self.input_handler = handler
+
+    def _get_human_input(self, player, action_type, **kwargs):
+        """Request input from human player."""
+        if self.input_handler:
+            return self.input_handler(player.name, action_type, **kwargs)
+        return None
 
     def get_player_ai(self, player):
         """Get the AI instance for a specific player."""
@@ -322,7 +344,20 @@ class GameController:
         )
 
         ai = self.get_player_ai(player)
-        response = ai.call_model(prompt)
+
+        if isinstance(ai, HumanPlayer):
+            response = self._get_human_input(
+                player, 
+                'discussion',
+                role_info=role_info,
+                game_state=game_state,
+                leader_name=leader.name,
+                proposed_team=team_names,
+                discussion_history=discussion_history,
+                game_history=game_history
+            )
+        else:
+            response = ai.call_model(prompt)
 
         if not response:
             return "I'll go with the majority decision."
@@ -354,7 +389,21 @@ class GameController:
         )
 
         ai = self.get_player_ai(leader)
-        response = ai.call_model(prompt)
+
+        if isinstance(ai, HumanPlayer):
+            response = self._get_human_input(
+                leader,
+                'leader_final_proposal',
+                role_info=role_info,
+                game_state=game_state,
+                player_names=player_names,
+                initial_team=initial_team_names,
+                team_size=team_size,
+                discussion_history=discussion_history,
+                game_history=game_history
+            )
+        else:
+            response = ai.call_model(prompt)
 
         if not response:
             # Fallback: keep initial team
@@ -389,7 +438,19 @@ class GameController:
 
         print(f"\n[AI] {leader.name} is proposing a team...")
         ai = self.get_player_ai(leader)
-        response = ai.call_model(prompt)
+        
+        if isinstance(ai, HumanPlayer):
+            response = self._get_human_input(
+                leader,
+                'team_proposal',
+                role_info=role_info,
+                game_state=game_state,
+                player_names=player_names,
+                team_size=team_size,
+                game_history=game_history
+            )
+        else:
+            response = ai.call_model(prompt)
 
         if not response:
             # Fallback: random selection
@@ -423,7 +484,19 @@ class GameController:
         )
 
         ai = self.get_player_ai(player)
-        response = ai.call_model(prompt)
+        
+        if isinstance(ai, HumanPlayer):
+            response = self._get_human_input(
+                player,
+                'vote',
+                role_info=role_info,
+                game_state=game_state,
+                proposed_team=team_names,
+                game_history=game_history
+            )
+        else:
+            response = ai.call_model(prompt)
+        
         vote = ai.extract_choice(response, ['APPROVE', 'REJECT'])
 
         if not vote:
@@ -445,7 +518,18 @@ class GameController:
         )
 
         ai = self.get_player_ai(player)
-        response = ai.call_model(prompt)
+
+        if isinstance(ai, HumanPlayer):
+            response = self._get_human_input(
+                player,
+                'mission_action',
+                role_info=role_info,
+                game_state=game_state,
+                game_history=game_history
+            )
+        else:
+            response = ai.call_model(prompt)
+
         action = ai.extract_choice(response, ['SUCCESS', 'FAIL'])
 
         if not action:
@@ -474,7 +558,17 @@ class GameController:
         )
 
         ai = self.get_player_ai(assassin)
-        response = ai.call_model(prompt)
+
+        if isinstance(ai, HumanPlayer):
+            response = self._get_human_input(
+                assassin,
+                'assassination',
+                role_info=role_info,
+                good_players=player_names,
+                game_history=game_history
+            )
+        else:
+            response = ai.call_model(prompt)
 
         # Extract target name
         target_name = None

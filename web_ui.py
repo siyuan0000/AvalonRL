@@ -8,8 +8,8 @@ import os
 import json
 import subprocess
 from datetime import datetime
-from avalon_ai_game import AvalonGame, GameController, OllamaAI, DeepSeekAPI, LocalModelAI
-from threading import Thread
+from avalon_ai_game import AvalonGame, GameController, OllamaAI, DeepSeekAPI, LocalModelAI, HumanPlayer
+from threading import Thread, Event
 import time
 
 app = Flask(__name__)
@@ -19,7 +19,10 @@ running_game = {
     'is_running': False,
     'game_id': None,
     'status': 'idle',
-    'log_path': None
+    'log_path': None,
+    'pending_input': None,  # {player, type, data}
+    'input_event': Event(),
+    'input_response': None
 }
 
 def load_env_api_key():
@@ -31,6 +34,28 @@ def load_env_api_key():
                 if line.strip().startswith('DEEPSEEK_API_KEY='):
                     return line.strip().split('=', 1)[1]
     return os.environ.get('DEEPSEEK_API_KEY')
+
+def handle_human_input(player_name, action_type, **kwargs):
+    """Callback to handle human input requests from the game thread."""
+    global running_game
+    
+    # Set pending input state
+    running_game['pending_input'] = {
+        'player': player_name,
+        'type': action_type,
+        'data': kwargs
+    }
+    
+    # Clear event and wait for input
+    running_game['input_event'].clear()
+    running_game['input_event'].wait()
+    
+    # Get response and clear state
+    response = running_game['input_response']
+    running_game['pending_input'] = None
+    running_game['input_response'] = None
+    
+    return response
 
 def run_game_thread(config):
     """Run game in a separate thread"""
@@ -45,34 +70,30 @@ def run_game_thread(config):
 
         # Create AI instances based on configuration
         player_ais = []
-
-        if config['mode'] == 'all_same':
-            # All players use the same AI configuration
-            ai_config = config['ai_config']
-
-            for _ in range(6):
-                if ai_config['backend'] == 'ollama':
-                    player_ais.append(OllamaAI(model_name=ai_config['model']))
-                elif ai_config['backend'] == 'deepseek':
-                    api_key = ai_config.get('api_key') or load_env_api_key()
-                    player_ais.append(DeepSeekAPI(api_key=api_key, model=ai_config['model']))
-                elif ai_config['backend'] == 'local':
-                    player_ais.append(LocalModelAI(model_path=ai_config['model']))
-
-        else:  # custom mode
-            # Each player has their own configuration
-            for player_config in config['players']:
-                if player_config['backend'] == 'ollama':
-                    player_ais.append(OllamaAI(model_name=player_config['model']))
-                elif player_config['backend'] == 'deepseek':
-                    api_key = player_config.get('api_key') or load_env_api_key()
-                    player_ais.append(DeepSeekAPI(api_key=api_key, model=player_config['model']))
-                elif player_config['backend'] == 'local':
-                    player_ais.append(LocalModelAI(model_path=player_config['model']))
+        
+        # Fixed DeepSeek API Key (from config or env)
+        api_key = config.get('api_key') or load_env_api_key()
+        
+        # Determine User Player (Player 0 - Alice)
+        user_mode = config.get('user_mode', 'watch') # 'play' or 'watch'
+        
+        # Player 0 (Alice) - User or AI
+        if user_mode == 'play':
+            player_ais.append(HumanPlayer(name=player_names[0]))
+        else:
+            player_ais.append(DeepSeekAPI(api_key=api_key, model='deepseek-chat'))
+            
+        # Players 1-5 - Fixed DeepSeek AI
+        for i in range(1, 6):
+            player_ais.append(DeepSeekAPI(api_key=api_key, model='deepseek-chat'))
 
         # Run the game
         running_game['status'] = 'running'
         controller = GameController(game, player_ais)
+        
+        # Set input handler for human players
+        controller.set_input_handler(handle_human_input)
+        
         controller.run_game()
 
         # Game completed successfully
@@ -108,7 +129,10 @@ def start_game():
         'is_running': True,
         'game_id': None,
         'status': 'starting',
-        'log_path': None
+        'log_path': None,
+        'pending_input': None,
+        'input_event': Event(),
+        'input_response': None
     }
 
     # Start game in a separate thread
@@ -121,7 +145,28 @@ def start_game():
 @app.route('/api/game_status')
 def game_status():
     """Get current game status"""
-    return jsonify(running_game)
+    # Create a copy to avoid serialization issues with Event objects
+    status_copy = running_game.copy()
+    if 'input_event' in status_copy:
+        del status_copy['input_event']
+    return jsonify(status_copy)
+
+@app.route('/api/submit_action', methods=['POST'])
+def submit_action():
+    """Submit an action for a human player"""
+    global running_game
+    
+    if not running_game['is_running'] or not running_game['pending_input']:
+        return jsonify({'error': 'No pending input request'}), 400
+        
+    data = request.json
+    action = data.get('action')
+    
+    # Store response and signal game thread
+    running_game['input_response'] = action
+    running_game['input_event'].set()
+    
+    return jsonify({'status': 'success'})
 
 @app.route('/api/logs')
 def list_logs():
