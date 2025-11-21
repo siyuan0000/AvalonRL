@@ -4,8 +4,9 @@
 let statusInterval = null;
 
 // Initialize page
-document.addEventListener('DOMContentLoaded', function() {
-    loadRecentGames();
+document.addEventListener('DOMContentLoaded', function () {
+    // loadRecentGames();
+    startStatusPolling();
 });
 
 // Start a new game
@@ -25,7 +26,7 @@ async function startGame() {
     // Get configuration
     const userMode = document.querySelector('input[name="userMode"]:checked').value;
     const apiKey = document.getElementById('apiKey').value.trim();
-    
+
     const config = {
         user_mode: userMode,
         api_key: apiKey
@@ -95,16 +96,16 @@ async function updateGameStatus() {
             document.getElementById('interactionCard').style.display = 'none';
         } else if (status.status === 'running') {
             statusMessage.textContent = 'Game is running...';
-            
+
             // Check for pending input
             if (status.pending_input) {
                 showInputForm(status.pending_input);
             } else {
                 document.getElementById('interactionCard').style.display = 'none';
             }
-            
+
         } else if (status.status === 'completed') {
-            statusMessage.innerHTML = `Game completed! <a href="/viewer?game=${status.game_id}">View results</a>`;
+            statusMessage.innerHTML = `Game completed! < a href = "/viewer?game=${status.game_id}" > View results</a > `;
             startButton.disabled = false;
             startButton.textContent = 'Start Another Game';
             document.getElementById('interactionCard').style.display = 'none';
@@ -134,115 +135,115 @@ function showInputForm(inputRequest) {
     const playerSpan = document.getElementById('interactionPlayer');
     const promptP = document.getElementById('interactionPrompt');
     const contentDiv = document.getElementById('interactionContent');
-    
+
     card.style.display = 'block';
     playerSpan.textContent = inputRequest.player;
-    
+
     const type = inputRequest.type;
     const data = inputRequest.data;
-    
+
     let html = '';
-    
+
     if (type === 'discussion') {
-        promptP.textContent = `Discussion Phase: What do you want to say about the proposed team (${data.proposed_team.join(', ')})?`;
+        promptP.textContent = `Discussion Phase: What do you want to say about the proposed team(${data.proposed_team.join(', ')}) ? `;
         html = `
-            <div class="form-group">
+    < div class="form-group" >
                 <textarea id="discussionInput" rows="3" placeholder="Enter your comment..."></textarea>
                 <button class="btn-primary" onclick="submitAction(document.getElementById('discussionInput').value)">Submit Comment</button>
-            </div>
-            <div class="info-box">
-                <p><strong>Role Info:</strong> ${data.role_info}</p>
-                <p><strong>Game State:</strong> ${data.game_state}</p>
-            </div>
-        `;
+            </div >
+    <div class="info-box">
+        <p><strong>Role Info:</strong> ${data.role_info}</p>
+        <p><strong>Game State:</strong> ${data.game_state}</p>
+    </div>
+`;
     } else if (type === 'team_proposal') {
         promptP.textContent = `You are the Leader! Select ${data.team_size} players for the mission.`;
-        
+
         const playersHtml = data.player_names.map(name => `
-            <label class="checkbox-label">
-                <input type="checkbox" name="teamSelect" value="${name}">
-                ${name}
-            </label>
+    < label class= "checkbox-label" >
+    <input type="checkbox" name="teamSelect" value="${name}">
+        ${name}
+    </label>
         `).join('');
-        
+
         html = `
-            <div class="form-group">
+        < div class="form-group" >
                 <div class="checkbox-group">
                     ${playersHtml}
                 </div>
                 <button class="btn-primary" onclick="submitTeamProposal(${data.team_size})">Propose Team</button>
-            </div>
-            <div class="info-box">
-                <p><strong>Role Info:</strong> ${data.role_info}</p>
-            </div>
-        `;
+            </div >
+    <div class="info-box">
+        <p><strong>Role Info:</strong> ${data.role_info}</p>
+    </div>
+`;
     } else if (type === 'leader_final_proposal') {
         promptP.textContent = `Final Decision: Confirm or change your team proposal.`;
-        
+
         const playersHtml = data.player_names.map(name => `
-            <label class="checkbox-label">
-                <input type="checkbox" name="teamSelect" value="${name}" ${data.initial_team.includes(name) ? 'checked' : ''}>
-                ${name}
-            </label>
-        `).join('');
-        
+    < label class="checkbox-label" >
+        <input type="checkbox" name="teamSelect" value="${name}" ${data.initial_team.includes(name) ? 'checked' : ''}>
+            ${name}
+        </label>
+`).join('');
+
         html = `
-            <div class="form-group">
+    < div class="form-group" >
                 <div class="checkbox-group">
                     ${playersHtml}
                 </div>
                 <button class="btn-primary" onclick="submitTeamProposal(${data.team_size})">Confirm Team</button>
-            </div>
-            <div class="info-box">
-                <p><strong>Role Info:</strong> ${data.role_info}</p>
-            </div>
-        `;
+            </div >
+    <div class="info-box">
+        <p><strong>Role Info:</strong> ${data.role_info}</p>
+    </div>
+`;
     } else if (type === 'vote') {
-        promptP.textContent = `Vote on the proposed team: ${data.proposed_team.join(', ')}`;
+        promptP.textContent = `Vote on the proposed team: ${data.proposed_team.join(', ')} `;
         html = `
-            <div class="action-buttons">
+    < div class="action-buttons" >
                 <button class="btn-success" onclick="submitAction('APPROVE')">APPROVE</button>
                 <button class="btn-danger" onclick="submitAction('REJECT')">REJECT</button>
-            </div>
-            <div class="info-box">
-                <p><strong>Role Info:</strong> ${data.role_info}</p>
-            </div>
-        `;
+            </div >
+    <div class="info-box">
+        <p><strong>Role Info:</strong> ${data.role_info}</p>
+    </div>
+`;
     } else if (type === 'mission_action') {
         promptP.textContent = `Mission Phase: Choose your action.`;
         html = `
-            <div class="action-buttons">
+    < div class="action-buttons" >
                 <button class="btn-success" onclick="submitAction('SUCCESS')">SUCCESS</button>
                 <button class="btn-danger" onclick="submitAction('FAIL')">FAIL</button>
-            </div>
-            <div class="info-box">
-                <p><strong>Role Info:</strong> ${data.role_info}</p>
-                <p class="warning-text">Note: Good players MUST choose SUCCESS.</p>
-            </div>
-        `;
+            </div >
+    <div class="info-box">
+        <p><strong>Role Info:</strong> ${data.role_info}</p>
+        <p class="warning-text">Note: Good players MUST choose SUCCESS.</p>
+    </div>
+`;
     } else if (type === 'assassination') {
         promptP.textContent = `Assassin Phase: Identify Merlin!`;
-        
+
         const playersHtml = data.good_players.map(name => `
-            <label class="radio-label">
-                <input type="radio" name="assassinTarget" value="${name}">
-                ${name}
-            </label>
-        `).join('');
-        
+    < label class="radio-label" >
+        <input type="radio" name="assassinTarget" value="${name}">
+            ${name}
+        </label>
+`).join('');
+
         html = `
-            <div class="form-group">
+    < div class="form-group" >
                 <div class="radio-group">
                     ${playersHtml}
                 </div>
                 <button class="btn-danger" onclick="submitAssassinTarget()">Assassinate</button>
-            </div>
-            <div class="info-box">
-                <p><strong>Role Info:</strong> ${data.role_info}</p>
-            </div>
-        `;
+            </div >
+    <div class="info-box">
+        <p><strong>Role Info:</strong> ${data.role_info}</p>
+    </div>
+`;
     }
-    
+
     contentDiv.innerHTML = html;
 }
 
@@ -250,8 +251,8 @@ async function submitAction(action) {
     try {
         await fetch('/api/submit_action', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({action: action})
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: action })
         });
         // Hide card immediately to prevent double submission
         document.getElementById('interactionCard').style.display = 'none';
@@ -296,14 +297,14 @@ async function loadRecentGames() {
         // Display recent games (limit to 10)
         const recentGames = data.logs.slice(0, 10);
         gamesContainer.innerHTML = recentGames.map(game => `
-            <div class="game-item" onclick="viewGame('${game.game_id}')">
+    < div class="game-item" onclick = "viewGame('${game.game_id}')" >
                 <div class="game-item-header">
                     <span class="game-id">${game.game_id}</span>
                     <span class="winner-badge ${game.winner.toLowerCase()}">${game.winner}</span>
                 </div>
                 <div class="game-timestamp">${formatTimestamp(game.timestamp)}</div>
-            </div>
-        `).join('');
+            </div >
+    `).join('');
 
     } catch (error) {
         console.error('Failed to load games:', error);
@@ -313,7 +314,7 @@ async function loadRecentGames() {
 
 // View a specific game
 function viewGame(gameId) {
-    window.location.href = `/viewer?game=${gameId}`;
+    window.location.href = `/ viewer ? game = ${gameId} `;
 }
 
 // Format timestamp for display

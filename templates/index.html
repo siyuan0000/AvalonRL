@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Avalon AI Game - Control Panel</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
+
 <body>
     <div class="container">
         <header>
@@ -13,7 +15,7 @@
             <p class="subtitle">Social Deduction Game with AI Players</p>
             <nav>
                 <a href="/" class="active">Control Panel</a>
-                <a href="/viewer">Game Logs</a>
+                <!-- <a href="/viewer">Game Logs</a> -->
             </nav>
         </header>
 
@@ -31,7 +33,7 @@
             <section id="interactionCard" class="card interaction-card" style="display: none;">
                 <h2>Your Turn: <span id="interactionPlayer">Player</span></h2>
                 <p id="interactionPrompt" class="interaction-prompt">Please make a decision...</p>
-                
+
                 <div id="interactionContent" class="interaction-content">
                     <!-- Dynamic content will be injected here -->
                 </div>
@@ -67,13 +69,15 @@
                 </div>
             </section>
 
-            <!-- Recent Games Section -->
+            <!-- Recent Games Section (Hidden) -->
+            <!--
             <section class="card">
                 <h2>Recent Games</h2>
                 <div id="recentGames" class="games-list">
                     <p class="loading">Loading...</p>
                 </div>
             </section>
+            -->
         </main>
 
         <footer>
@@ -84,4 +88,5 @@
 
     <script src="/static/script.js"></script>
 </body>
+
 </html>
