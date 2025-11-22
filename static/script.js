@@ -12,12 +12,12 @@ document.addEventListener('DOMContentLoaded', function () {
 // Start a new game
 async function startGame() {
     const startButton = document.getElementById('startButton');
-    const mode = document.querySelector('input[name="configMode"]:checked').value;
+    // const mode = document.querySelector('input[name="configMode"]:checked').value;
 
-    if (mode === 'custom') {
-        alert('Custom mode is not yet implemented in the web interface. Please use start.py for custom configurations.');
-        return;
-    }
+    // if (mode === 'custom') {
+    //     alert('Custom mode is not yet implemented in the web interface. Please use start.py for custom configurations.');
+    //     return;
+    // }
 
     // Disable start button
     startButton.disabled = true;
