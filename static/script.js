@@ -62,7 +62,7 @@ function startStatusPolling() {
         clearInterval(statusInterval);
     }
 
-    statusInterval = setInterval(updateGameStatus, 1000);
+    statusInterval = setInterval(updateGameStatus, 500);
     updateGameStatus(); // Initial update
 }
 
@@ -80,6 +80,15 @@ async function updateGameStatus() {
         // Update badge
         statusBadge.className = 'status-badge ' + status.status;
         statusBadge.textContent = status.status.replace('_', ' ');
+
+        // Update action text
+        const actionText = document.getElementById('gameAction');
+        if (status.current_action && status.status === 'running') {
+            actionText.textContent = status.current_action;
+            actionText.style.display = 'block';
+        } else {
+            actionText.style.display = 'none';
+        }
 
         // Update message
         if (status.status === 'idle') {
@@ -105,7 +114,7 @@ async function updateGameStatus() {
             }
 
         } else if (status.status === 'completed') {
-            statusMessage.innerHTML = `Game completed! < a href = "/viewer?game=${status.game_id}" > View results</a > `;
+            statusMessage.innerHTML = `Game completed! <a href="/viewer?game=${status.game_id}">View results</a>`;
             startButton.disabled = false;
             startButton.textContent = 'Start Another Game';
             document.getElementById('interactionCard').style.display = 'none';

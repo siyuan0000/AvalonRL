@@ -22,7 +22,8 @@ running_game = {
     'log_path': None,
     'pending_input': None,  # {player, type, data}
     'input_event': Event(),
-    'input_response': None
+    'input_response': None,
+    'current_action': ''
 }
 
 def load_env_api_key():
@@ -34,6 +35,11 @@ def load_env_api_key():
                 if line.strip().startswith('DEEPSEEK_API_KEY='):
                     return line.strip().split('=', 1)[1]
     return os.environ.get('DEEPSEEK_API_KEY')
+
+def handle_log_action(message):
+    """Callback to handle game log updates."""
+    global running_game
+    running_game['current_action'] = message
 
 def handle_human_input(player_name, action_type, **kwargs):
     """Callback to handle human input requests from the game thread."""
@@ -94,6 +100,9 @@ def run_game_thread(config):
         # Set input handler for human players
         controller.set_input_handler(handle_human_input)
         
+        # Set log handler for status updates
+        controller.set_log_handler(handle_log_action)
+        
         controller.run_game()
 
         # Game completed successfully
@@ -132,7 +141,8 @@ def start_game():
         'log_path': None,
         'pending_input': None,
         'input_event': Event(),
-        'input_response': None
+        'input_response': None,
+        'current_action': ''
     }
 
     # Start game in a separate thread

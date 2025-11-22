@@ -307,6 +307,7 @@ class GameController:
         self.game = game
         self.player_ais = player_ai_configs
         self.input_handler = None  # Callback for human input
+        self.log_handler = None    # Callback for status updates
 
         # Initialize game logger
         self.logger = GameLogger()
@@ -315,6 +316,15 @@ class GameController:
     def set_input_handler(self, handler):
         """Set callback for handling human input."""
         self.input_handler = handler
+
+    def set_log_handler(self, handler):
+        """Set callback for game status updates."""
+        self.log_handler = handler
+
+    def log_action(self, message):
+        """Send status update to handler."""
+        if self.log_handler:
+            self.log_handler(message)
 
     def _get_human_input(self, player, action_type, **kwargs):
         """Request input from human player."""
@@ -436,6 +446,7 @@ class GameController:
             game_history=game_history
         )
 
+        self.log_action(f"{leader.name} is proposing a team...")
         print(f"\n[AI] {leader.name} is proposing a team...")
         ai = self.get_player_ai(leader)
         
@@ -590,6 +601,7 @@ class GameController:
         print(f"\n{'='*60}")
         print(f"ROUND {round_num + 1} - Mission requires {team_size} players")
         print(f"{'='*60}")
+        self.log_action(f"Starting Round {round_num + 1} (Team size: {team_size})")
 
         # Initialize round log
         round_log = self.logger.start_round(round_num + 1, team_size)
@@ -627,6 +639,7 @@ class GameController:
                 print(f"\n{'─'*60}")
                 print("DISCUSSION PHASE")
                 print(f"{'─'*60}")
+                self.log_action(f"Discussion Phase: Leader {leader.name} opens the floor")
 
                 # Discussion happens clockwise, matching leader order
                 discussion_history = []
@@ -644,6 +657,7 @@ class GameController:
                 ]
 
                 for player in discussion_order:
+                    self.log_action(f"Discussion: {player.name} is speaking...")
                     comment = self.ai_discuss_proposal(player, leader, initial_team, discussion_history)
                     discussion_history.append((player.name, comment))
                     self.logger.add_discussion_comment(proposal_log, player.name, comment)
@@ -688,6 +702,7 @@ class GameController:
                 print(f"\n{'─'*60}")
                 print("VOTING PHASE")
                 print(f"{'─'*60}")
+                self.log_action(f"Voting Phase: Players are voting on {leader.name}'s team")
 
                 votes = []
                 votes_dict = {}
@@ -704,6 +719,7 @@ class GameController:
                 approved = approve_count > len(votes) / 2
 
                 print(f"\nResult: {approve_count} approve, {len(votes) - approve_count} reject → {'APPROVED' if approved else 'REJECTED'}")
+                self.log_action(f"Vote Result: {'APPROVED' if approved else 'REJECTED'} ({approve_count} vs {len(votes) - approve_count})")
 
             # Record proposal outcome for the shared timeline memory
             round_log['proposals'].append(proposal_log)
@@ -713,6 +729,7 @@ class GameController:
                 print(f"\n{'─'*60}")
                 print("MISSION PHASE")
                 print(f"{'─'*60}")
+                self.log_action("Mission Phase: Team is executing the mission...")
 
                 mission_actions = []
                 mission_actions_dict = {}
@@ -726,6 +743,7 @@ class GameController:
                 mission_success = success_count == len(final_team)
 
                 print(f"\nMission Result: {'SUCCESS' if mission_success else 'FAIL'}")
+                self.log_action(f"Mission Result: {'SUCCESS' if mission_success else 'FAIL'} ({success_count} success, {len(final_team) - success_count} fail)")
 
                 # Log mission result
                 self.logger.log_mission(round_log, final_team_names, mission_actions_dict, mission_success)
@@ -746,6 +764,7 @@ class GameController:
         print(f"\n{'='*60}")
         print("ASSASSINATION PHASE")
         print(f"{'='*60}")
+        self.log_action("Assassination Phase: Assassin is choosing a target...")
 
         assassin = next(p for p in self.game.players if p.role == 'Assassin')
         print(f"\n{assassin.name} (Assassin) must identify and kill Merlin...")
@@ -760,9 +779,11 @@ class GameController:
 
         if target_was_merlin:
             print(f"\n{target.name} was Merlin! EVIL WINS!")
+            self.log_action(f"Assassination Successful! {target.name} was Merlin. EVIL WINS!")
             return False
         else:
             print(f"\n{target.name} was {target.role}, not Merlin! GOOD WINS!")
+            self.log_action(f"Assassination Failed! {target.name} was {target.role}. GOOD WINS!")
             return True
 
     def run_game(self):
